@@ -529,6 +529,18 @@
       }
     }
 
+  /* ── UPDATE TOAST ── */
+  #updateToast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--primary-blue); color: white;
+    padding: 10px 22px; border-radius: 24px;
+    font-size: var(--type-body); font-weight: 600;
+    box-shadow: var(--shadow-3); z-index: 999;
+    pointer-events: none; white-space: nowrap;
+    opacity: 0; transition: opacity 0.35s;
+  }
+  #updateToast.visible { opacity: 1; }
+
   </style>
   <link rel="manifest" href="pay-manifest.json">
   <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
@@ -837,6 +849,8 @@
     ⚠️ Estimate only — not financial or tax advice. Actual figures may differ from your payslip due to rounding and cumulative tax adjustments. Tax is estimated on a standard cumulative 1257L basis. London Allowance (£276.16) is included automatically every period.
   </div>
 
+  <div id="updateToast" role="status" aria-live="polite"></div>
+
   </main>
 
 </div>
@@ -870,7 +884,7 @@
 //     and the TAX / NI / SL threshold values below.
 //     P48 anchor (13 Feb 2026) stays fixed as the offset reference point.
 const CONFIG = {
-  APP_VERSION:    '0.71',
+  APP_VERSION:    '0.72',
   // Period arithmetic
   ANCHOR_DATE:    new Date(2026, 1, 13), // P48 payday: 13 Feb 2026 (fixed reference)
   PERIOD_DAYS:    28,
@@ -1433,48 +1447,33 @@ if (_splash) {
 
   function showUpToDate() {
     if (!statusEl) return;
-    statusEl.textContent = '✓ Up to date';
+    statusEl.textContent = '✓ Up to date — updates apply automatically';
     statusEl.className   = 'lightbox-status up-to-date';
-    if (updateBtn) updateBtn.style.display = 'none';
-  }
-  function showUpdateAvailable() {
-    if (!statusEl) return;
-    statusEl.textContent = 'Update available';
-    statusEl.className   = 'lightbox-status update-available';
-    if (updateBtn) updateBtn.style.display = 'block';
   }
   function checkUpdateStatus() {
-    if (!swReg) { showUpToDate(); return; }
-    swReg.waiting ? showUpdateAvailable() : showUpToDate();
+    showUpToDate();
+  }
+
+  // Auto-update: when a new SW is waiting or finishes installing, apply it immediately.
+  // The page will reload and show an "Updated to vX.XX" toast.
+  function applyUpdate(worker) {
+    worker.postMessage({ type: 'SKIP_WAITING' });
   }
 
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.ready.then(reg => {
       swReg = reg;
-      if (reg.waiting) showUpdateAvailable();
+      if (reg.waiting) applyUpdate(reg.waiting);
       reg.addEventListener('updatefound', () => {
         const nw = reg.installing;
         if (!nw) return;
         nw.addEventListener('statechange', () => {
           if (nw.state === 'installed' && navigator.serviceWorker.controller) {
-            showUpdateAvailable();
+            applyUpdate(nw);
           }
         });
       });
       setInterval(() => reg.update(), 60 * 60 * 1000);
-    });
-  }
-
-  if (updateBtn) {
-    updateBtn.addEventListener('click', e => {
-      e.stopPropagation();
-      if (!swReg || !swReg.waiting) return;
-      updateBtn.textContent = 'Updating…';
-      updateBtn.disabled    = true;
-      swReg.waiting.postMessage({ type: 'SKIP_WAITING' });
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        window.location.reload();
-      }, { once: true });
     });
   }
 
@@ -1499,14 +1498,38 @@ if (_splash) {
   if (closeBtn)    closeBtn.addEventListener('click', closeLightbox);
 })();
 
-// ── SERVICE WORKER REGISTRATION ───────────────────────────────────────────────
-if ('serviceWorker' in navigator) {
+// ── SERVICE WORKER REGISTRATION + AUTO-UPDATE TOAST ──────────────────────────
+(function () {
+  if (!('serviceWorker' in navigator)) return;
+
+  // Show "Updated to vX.XX ✓" toast if this load was triggered by an auto-update
+  const justUpdated = sessionStorage.getItem('swJustUpdated');
+  if (justUpdated) {
+    sessionStorage.removeItem('swJustUpdated');
+    const toast = document.getElementById('updateToast');
+    if (toast) {
+      toast.textContent = '✓ Updated to v' + justUpdated;
+      requestAnimationFrame(() => toast.classList.add('visible'));
+      setTimeout(() => toast.classList.remove('visible'), 4000);
+    }
+  }
+
+  // When a new SW takes control, store the new version and reload once.
+  // Guard on navigator.serviceWorker.controller so we don't reload on first install
+  // (when there was no previous controller).
+  if (navigator.serviceWorker.controller) {
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      sessionStorage.setItem('swJustUpdated', CONFIG.APP_VERSION);
+      window.location.reload();
+    }, { once: true });
+  }
+
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./pay-service-worker.js')
       .then(reg  => console.log('SW registered:', reg.scope))
-      .catch(err => console.log('SW registration failed:', err));
+      .catch(err => console.error('SW registration failed:', err));
   });
-}
+})();
 </script>
 </body>
 </html>

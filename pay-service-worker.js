@@ -1,5 +1,5 @@
-const CACHE_NAME = 'myb-pay-calc-v1';
-// ⚠️ Increment CACHE_NAME string on each deployment to bust old caches
+const CACHE_NAME = 'myb-pay-calc-v2';
+// ⚠️ Increment CACHE_NAME on each deployment to bust old caches
 
 const URLS_TO_CACHE = [
   './',
@@ -13,15 +13,14 @@ const URLS_TO_CACHE = [
   './icon-512.png'
 ];
 
-// Install — cache assets but do NOT call skipWaiting here.
-// skipWaiting is triggered by the "Update now" button via postMessage.
+// Install — pre-cache assets. skipWaiting is triggered by the page via postMessage.
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => cache.addAll(URLS_TO_CACHE))
   );
 });
 
-// Activate — clean up old caches, claim clients
+// Activate — clean up old caches, claim all open clients immediately
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys()
@@ -32,8 +31,28 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Fetch — cache first, fall back to network
+// Fetch strategy:
+//   index.html → network-first (always get the freshest version, fall back to cache offline)
+//   everything else → cache-first (icons, manifest don't change often)
 self.addEventListener('fetch', event => {
+  const url = new URL(event.request.url);
+  const isHtml = url.pathname === '/' || url.pathname.endsWith('index.html');
+
+  if (isHtml) {
+    // Network-first: fetch fresh, update cache, fall back to cached copy if offline
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          const toCache = response.clone();
+          caches.open(CACHE_NAME).then(c => c.put(event.request, toCache));
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Cache-first for icons, manifest, etc.
   event.respondWith(
     caches.match(event.request).then(cached => {
       if (cached) return cached;
@@ -49,9 +68,9 @@ self.addEventListener('fetch', event => {
   );
 });
 
-// SKIP_WAITING: sent by the lightbox "Update now" button.
-// Activates the waiting SW immediately, triggering controllerchange,
-// which causes the page to reload with the new version.
+// SKIP_WAITING: sent automatically by the page when a new SW is ready.
+// Activates the new SW immediately, triggering controllerchange on the page,
+// which stores the new version and reloads to show the update toast.
 self.addEventListener('message', event => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
