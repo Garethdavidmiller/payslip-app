@@ -2,13 +2,33 @@
 
 ## What this project is
 
-This is the **payday calculator** for the MYB (Metrobus/Yeoman/Bicester?) Roster App — a
-Progressive Web App used by Chiltern Railways Customer Experience Advisors (CEAs) and
-supervisors to view their rotating shift rosters.
+This is the **payday calculator** for the MYB Roster App — a Progressive Web App used by
+Chiltern Railways Customer Experience Advisors (CEAs) and supervisors at London Marylebone
+to view their rotating shift rosters and calculate their pay.
 
-This repository contains the standalone payday calculator page. It **will be merged into the
-main roster app** at a future point. Until then it lives here so the UI can be developed
-independently. The golden rule is: **build as if it is already part of the roster app**.
+---
+
+## Development phases — read this first
+
+### Phase 1 — Manual calculator (current, active)
+**This is where we are now.** Staff enter their own hours each period (overtime, RDW, Sunday
+working, etc.) and the app calculates gross pay, tax, NI, pension, and net pay. It is a
+standalone PWA with no connection to the roster app or Firestore. This is what is being
+built and improved in this repository.
+
+### Phase 2 — Merge into the roster app (planned)
+The calculator will be moved into the main roster app repository so it lives alongside
+`index.html`, `admin.html`, and the shared files. At that point it will adopt the shared
+CSS, shared data module, and shared Firebase setup. The golden rule even now is:
+**build as if it is already part of the roster app** — matching its visual design,
+coding style, and file conventions — so the merge is straightforward.
+
+### Phase 3 — Auto-read shifts from Firestore (aspirational)
+Eventually the calculator may read a staff member's actual shifts directly from the roster
+(base roster + Firestore overrides) rather than requiring manual entry. This is a future
+aspiration. **Do not design or build for Phase 3 now.** Notes about Firestore data and
+shift-reading patterns are included in this guide for reference only, so the groundwork
+is understood when the time comes.
 
 ---
 
@@ -354,7 +374,11 @@ Hours worked in that window are what gets paid on the corresponding payday.
 
 ---
 
-## Firestore data — what the calculator needs
+## Firestore data — Phase 3 reference only (do not build now)
+
+> This section documents how shift data is stored in the roster app. It is here so the
+> pattern is understood when Phase 3 (auto-read) is eventually tackled. **Nothing in
+> Phase 1 reads from Firestore.**
 
 All shift data lives in the `overrides` Firestore collection. The base roster comes from
 `roster-data.js`. To get a staff member's actual shift on any date:
@@ -406,34 +430,39 @@ Early/late/night classification thresholds:
 
 ## What the calculator UI should show
 
-Based on the product roadmap:
+### Phase 1 (now) — manual entry
 
-**Primary view — current pay period**
-- Which pay period is currently active (e.g. "Period ending Fri 10 Apr 2026")
-- Days into the period / days remaining
-- Breakdown of shift types worked so far: early / late / night / RDW / AL / sick / spare
-- Count of worked days vs rest days
+Staff enter their own hours for the selected pay period:
+- Contracted Saturday hours (capped at 140h/period)
+- Overtime at 1.25×
+- RDW (rest day worked) at 1.25×
+- Sunday working at 1.5×
+- Boxing Day at 3×
+- Peer training days
 
-**Secondary view — historical periods**
-- Select a previous pay period from a dropdown
-- Same breakdown for that period
+The app calculates and displays:
+- Gross pay (with line-by-line breakdown)
+- Income Tax, NI, Student Loan, Pension deductions
+- Estimated net pay
+- HPP (Holiday Pay Premium) estimator across all periods
+- Back-pay calculator for pay rises
 
-**How to identify the current pay period:**
-```javascript
-const today = new Date();
-const { paydays, cutoffs } = getPaydaysAndCutoffs(today.getFullYear());
-// Find the next payday on or after today → that's the end of the current period
-// The corresponding cutoff is the start of the current period
-```
+Hours are saved to `localStorage` per period so staff don't have to re-enter them.
 
-The calculator is **read-only** — no writes to Firestore. It only reads base roster data and
-Firestore overrides, then presents a summary.
+### Phase 3 (future aspiration — do not build now)
+
+Auto-read the staff member's shifts from the roster so they don't need to enter hours
+manually. The shift data patterns are documented below for future reference only.
 
 ---
 
-## Authentication — how to identify the logged-in user
+## Authentication — Phase 2 onwards
 
-The roster app uses a simple localStorage session. The same session is readable here:
+> In Phase 1, the calculator has no login. Any staff member can open it and enter hours.
+> Authentication becomes relevant in Phase 2 (merge) and Phase 3 (auto-read).
+
+The roster app uses a simple localStorage session. After the Phase 2 merge, the same
+session will be readable in the calculator:
 
 ```javascript
 const currentUser = localStorage.getItem('rosterUser'); // "G. Miller" — matches teamMembers[n].name exactly
@@ -510,16 +539,23 @@ Any new shift type, cell class, or badge introduced in this page needs rules ins
 
 ---
 
-## Key questions for Gareth before building the UI
+## Key design decisions (Phase 1 — resolved)
 
-1. **Pay rates** — does the calculator need to show £ amounts, or just counts of shift types?
-   If £ amounts: what is the standard day rate, the night premium, and the RDW rate?
-2. **Overtime threshold** — is there a contracted hours figure per period that triggers a
-   different pay rate once exceeded?
-3. **Spare shifts** — are SPARE days paid at full rate or a lower standby rate?
-4. **Login requirement** — should the calculator be accessible without logging in (showing a
-   generic view), or always require a logged-in user?
-5. **Historical depth** — how many previous pay periods should be selectable?
+These were open questions at the start of the project. Answers are recorded here for context.
+
+1. **Pay rates** — the calculator shows £ amounts. Staff enter their hourly rate. Multipliers
+   are: Saturday contracted hours 1.25×, overtime 1.25×, RDW 1.25×, Sunday 1.5×, Boxing Day 3×.
+2. **Contracted hours** — 140 hours per 28-day period. Saturday hours are capped at 140h.
+3. **Spare shifts** — not included in Phase 1 (manual entry; staff only enter hours actually worked).
+4. **Login requirement** — Phase 1 has no login. Anyone can open the calculator.
+5. **Historical depth** — all periods in the current tax year (P37–P51, 13 periods for 2025/26).
+
+## Open questions for Phase 2 (merge)
+
+- Which file should own the period selector logic after merge — `paycalc.js` calling
+  `getPaydaysAndCutoffs()`, or a shared utility?
+- Should the calculator share the roster app's existing `localStorage` namespace, or keep
+  its own `cea_p*` keys?
 
 ---
 
