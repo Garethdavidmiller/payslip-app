@@ -477,7 +477,18 @@ import the logic or redirect to `admin.html`.
 
 ---
 
-## Version bumping — how it will work after merge
+## Version bumping — rules (read every session)
+
+### During standalone development (now)
+
+`APP_VERSION` in `index.html` is the single source of truth. Rules:
+
+- **Increment by `0.01` on every commit that changes behaviour** — no exceptions.
+- **Always tell Gareth the new version number** when you make changes (e.g. "This is now v0.72").
+- The version lives at: `APP_VERSION: '0.XX'` near the top of the JS constants block.
+- A PostToolUse hook will auto-increment and remind you if you forget.
+
+### How it will work after merge
 
 The parent repo requires 13 version string updates per commit. After merge, `paycalc.html`
 and `paycalc.js` will add **two new rows** to that table:
