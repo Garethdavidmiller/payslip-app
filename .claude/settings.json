@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "statusMessage": "Checking APP_VERSION…",
+            "command": "jq -r '.tool_input.file_path // empty' | { read -r f; case \"$f\" in *index.html) ;; *) exit 0 ;; esac; cur=$(sed -n \"s/.*APP_VERSION:[[:space:]]*'\\([0-9.]*\\)'.*/\\1/p\" \"$f\" | head -1); rootdir=$(git -C \"$(dirname \"$f\")\" rev-parse --show-toplevel 2>/dev/null); rel=${f#\"$rootdir/\"}; com=$(git -C \"$rootdir\" show HEAD:\"$rel\" 2>/dev/null | sed -n \"s/.*APP_VERSION:[[:space:]]*'\\([0-9.]*\\)'.*/\\1/p\" | head -1); if [ \"$cur\" = \"$com\" ]; then new=$(printf '%.2f' \"$(echo \"$cur + 0.01\" | bc)\"); sed -i \"s/APP_VERSION:[[:space:]]*'$cur'/APP_VERSION:    '$new'/\" \"$f\"; printf '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"APP_VERSION was not updated — auto-incremented from %s to %s. Tell Gareth the app is now v%s.\"}}' \"$cur\" \"$new\" \"$new\"; else printf '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"APP_VERSION is v%s (was v%s at last commit). Mention version v%s to Gareth.\"}}' \"$cur\" \"$com\" \"$cur\"; fi; } 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  }
+}
