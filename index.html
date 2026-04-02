@@ -135,6 +135,7 @@
       transition: border-color 0.2s, box-shadow 0.2s;
     }
     .controls select:focus-visible { border-color: var(--accent-gold); box-shadow: 0 0 0 3px rgba(245,200,0,0.25); }
+    #yearSelect { flex: 0 0 auto; width: 108px; font-size: var(--type-body); }
     .period-meta { display: flex; justify-content: space-between; align-items: center; width: 100%; }
     .period-meta-text { font-size: var(--type-small); color: var(--text-faint); }
     .period-badge { font-size: var(--type-micro); font-weight: 800; background: var(--accent-gold); color: var(--primary-blue); padding: 3px 10px; border-radius: 50%; }
@@ -624,6 +625,7 @@
   <!-- PERIOD SELECTOR -->
   <div class="controls">
     <div class="controls-row">
+      <select id="yearSelect" onchange="onYearChange()"></select>
       <select id="periodSelect" onchange="onPeriodChange()"></select>
     </div>
     <div class="period-meta">
@@ -806,7 +808,7 @@
         <div class="hpp-amount" id="hppAmount">£–</div>
         <div class="hpp-basis" id="hppBasis">Enter hours across your periods above to calculate</div>
       </div>
-      <div class="card-note"><strong>Formula (confirmed by Chiltern payroll):</strong> Total variable pay (overtime + rest day hours + London Allowance, per the agreed principles) × 4/52 = 7.69%. Variable pay excludes basic pay, peer training, expenses and bonuses. This estimate covers the <strong>current tax year 2025/26</strong> — Chiltern will pay it in <strong>January 2027</strong>. Pro-rated if you were not employed for the full year. The amount is not in dispute; only the 8–21 month lag in payment timing.</div>
+      <div class="card-note" id="hppNote"><strong>Formula (confirmed by Chiltern payroll):</strong> Total variable pay (overtime + rest day hours + London Allowance) × 4/52 = 7.69%. Excludes basic pay, peer training, expenses and bonuses. This estimate covers the <strong>tax year 2025/26</strong> — Chiltern will pay it in <strong>January 2027</strong>. Pro-rated if you were not employed for the full year. The amount is not in dispute; only the 8–21 month lag in payment timing.</div>
     </div>
   </div>
 
@@ -939,7 +941,7 @@
 //     and the TAX / NI / SL threshold values below.
 //     P48 anchor (13 Feb 2026) stays fixed as the offset reference point.
 const CONFIG = {
-  APP_VERSION:    '0.75',
+  APP_VERSION:    '0.76',
   // Period arithmetic
   ANCHOR_DATE:    new Date(2026, 1, 13), // P48 payday: 13 Feb 2026 (fixed reference)
   PERIOD_DAYS:    28,
@@ -947,12 +949,17 @@ const CONFIG = {
   // Contractual — CEA grade, Marylebone
   CONTRACTED_HRS: 140,                   // hours per 28-day period
   LONDON_ALLOW:   276.16,               // London Allowance per period (£3,590.08/yr)
-  // Tax years 2025/26 and 2026/27
-  // 2025/26: P37 (paid 11 Apr 2025) → P49 (paid 13 Mar 2026)
-  // 2026/27: P50 (paid 10 Apr 2026) → P63 (paid ~9 Mar 2027)
-  // ⚠️  UPDATE THESE each April for the new tax year
-  FIRST_OFFSET:   -11,                  // P37 — first period of 2025/26
-  LAST_OFFSET:     15,                  // P63 — last period of 2026/27 (~Mar 2027)
+  FIRST_OFFSET:   -11,   // P37 — first period of 2025/26 (~11 Apr 2025)
+  LAST_OFFSET:     14,   // P62 — last period of 2026/27 (~11 Mar 2027)
+  // ── Tax year definitions ────────────────────────────────────────────────────
+  // "Tax year" here means: payday falls in that Apr→Mar window.
+  // 2025/26: P37 (paid ~11 Apr 2025) → P49 (paid ~13 Mar 2026)  offsets -11 to +1
+  // 2026/27: P50 (paid ~10 Apr 2026) → P62 (paid ~11 Mar 2027)  offsets  +2 to +14
+  // hppPaidJan = the January in which Chiltern pay that year's HPP lump sum
+  TAX_YEARS: [
+    { label: '2025/26', first: -11, last:  1, hppPaidJan: 2027 },
+    { label: '2026/27', first:   2, last: 14, hppPaidJan: 2028 },
+  ],
 };
 
 // Convenience aliases (keeps calculation code readable)
@@ -960,10 +967,19 @@ const P_YR   = CONFIG.PERIODS_PER_YR;
 const LONDON = CONFIG.LONDON_ALLOW;
 const CONTR  = CONFIG.CONTRACTED_HRS;
 
-// ── TAX & NI THRESHOLDS 2025/26 ───────────────────────────────────────────────
-// ⚠️  UPDATE each April — all values ÷ 13 for 4-weekly periods
-const TAX = { pa: 12570/P_YR, b: 50270/P_YR, h: 125140/P_YR, r20:0.20, r40:0.40, r45:0.45 };
-const NI  = { pt: 12570/P_YR, uel: 50270/P_YR, r8:0.08, r2:0.02 };
+// ── TAX & NI THRESHOLDS BY TAX YEAR ──────────────────────────────────────────
+// All annual figures ÷ 13 to give 4-weekly amounts.
+// 2025/26: confirmed. 2026/27: estimated — PA and band thresholds frozen until
+// Apr 2028 under Autumn Budget 2024; NI rates confirmed unchanged for 2026/27.
+// ⚠️  Review after each Autumn Budget and Spring Statement.
+const TAX_BY_YEAR = {
+  '2025/26': { pa: 12570/P_YR, b: 50270/P_YR, h: 125140/P_YR, r20:0.20, r40:0.40, r45:0.45 },
+  '2026/27': { pa: 12570/P_YR, b: 50270/P_YR, h: 125140/P_YR, r20:0.20, r40:0.40, r45:0.45 }, // ⚠️ Estimated
+};
+const NI_BY_YEAR = {
+  '2025/26': { pt: 12570/P_YR, uel: 50270/P_YR, r8:0.08, r2:0.02 },
+  '2026/27': { pt: 12570/P_YR, uel: 50270/P_YR, r8:0.08, r2:0.02 }, // ⚠️ Estimated
+};
 const SL_PLANS = {
   plan1:   { t: 24990/P_YR, r: 0.09 },
   plan2:   { t: 27295/P_YR, r: 0.09 },
@@ -1039,27 +1055,76 @@ function hasBoxingDay(p) {
   return false;
 }
 
+// ── TAX YEAR HELPERS ──────────────────────────────────────────────────────────
+function getTaxYearForOffset(offset) {
+  return CONFIG.TAX_YEARS.find(ty => offset >= ty.first && offset <= ty.last) || CONFIG.TAX_YEARS[0];
+}
+function getThresholds(yearLabel) {
+  return {
+    tax: TAX_BY_YEAR[yearLabel] || TAX_BY_YEAR['2025/26'],
+    ni:  NI_BY_YEAR[yearLabel]  || NI_BY_YEAR['2025/26'],
+  };
+}
+
 // ── PERIOD SELECT ─────────────────────────────────────────────────────────────
-function buildSelect() {
+function buildYearSelect() {
+  const sel     = document.getElementById('yearSelect');
+  const today   = new Date();
+  const periods = getPeriods();
+
+  // Find tax year of the most recent past period
+  const todayP  = periods.slice().reverse().find(p => p.payday <= today);
+  const defTY   = todayP ? getTaxYearForOffset(todayP.num - 48) : CONFIG.TAX_YEARS[0];
+
+  sel.innerHTML = '';
+  CONFIG.TAX_YEARS.forEach(ty => {
+    const o = document.createElement('option');
+    o.value = ty.label;
+    o.textContent = ty.label;
+    if (ty.label === defTY.label) o.selected = true;
+    sel.appendChild(o);
+  });
+
+  buildPeriodSelect(defTY.label, todayP ? todayP.num : null);
+}
+
+function buildPeriodSelect(yearLabel, selectPNum) {
   const sel     = document.getElementById('periodSelect');
   const periods = getPeriods();
   const today   = new Date();
-  let   defIdx  = 0;
+  const taxYear = CONFIG.TAX_YEARS.find(ty => ty.label === yearLabel);
+  if (!taxYear) return;
 
-  periods.forEach((p, i) => {
-    const o = document.createElement('option');
-    o.value = i;
-    o.textContent = `P${p.num}  ·  ${fd(p.start)} – ${fd(p.payday)}`;
-    sel.appendChild(o);
-    if (p.payday <= today) defIdx = i;
+  const yPeriods = periods.filter(p => {
+    const o = p.num - 48;
+    return o >= taxYear.first && o <= taxYear.last;
   });
 
-  sel.value = defIdx;
+  sel.innerHTML = '';
+  let defPNum = yPeriods[0].num;
+  yPeriods.forEach(p => {
+    const o = document.createElement('option');
+    o.value = p.num;
+    o.textContent = `P${p.num}  ·  ${fd(p.start)} – ${fdShort(p.payday)}`;
+    sel.appendChild(o);
+    if (p.payday <= today) defPNum = p.num;
+  });
+
+  // Use provided period if it belongs to this year, else fall back to default
+  const targetNum = (selectPNum && yPeriods.find(p => p.num === selectPNum))
+    ? selectPNum : defPNum;
+  sel.value = targetNum;
   onPeriodChange();
 }
 
+function onYearChange() {
+  buildPeriodSelect(document.getElementById('yearSelect').value, null);
+}
+
 function onPeriodChange() {
-  const p      = getPeriods()[+document.getElementById('periodSelect').value];
+  const pNum   = +document.getElementById('periodSelect').value;
+  const p      = getPeriods().find(x => x.num === pNum);
+  if (!p) return;
   const cutStr = fdShort(p.cutoff);
 
   document.getElementById('periodBadge').textContent = `P${p.num}`;
@@ -1100,8 +1165,7 @@ function onPeriodChange() {
 
 // ── PERIOD DATA SAVE / LOAD ───────────────────────────────────────────────────
 function currentPeriodNum() {
-  const periods = getPeriods();
-  return periods[+document.getElementById('periodSelect').value].num;
+  return +document.getElementById('periodSelect').value;
 }
 
 function readFormData() {
@@ -1236,6 +1300,12 @@ function updateBadges(rate) {
 }
 
 function calculate() {
+  // Resolve thresholds for the selected period's tax year
+  const _pNum   = currentPeriodNum();
+  const _curP   = getPeriods().find(x => x.num === _pNum);
+  const _ty     = _curP ? getTaxYearForOffset(_curP.num - 48) : CONFIG.TAX_YEARS[0];
+  const { tax: TAX, ni: NI } = getThresholds(_ty.label);
+
   const rate = numVal('hourlyRate') || 20.74;
   updateBadges(rate);
   const r125 = rate * 1.25;
@@ -1333,8 +1403,18 @@ function calculate() {
 // Variable pay includes: OT, RDW, Sunday, Boxing Day, Saturday uplift, London Allowance
 // Does NOT include: peer training, basic pay, expenses, bonuses
 function calcHPP() {
-  const rate    = numVal('hourlyRate') || 20.74;
-  const periods = getPeriods();
+  const rate       = numVal('hourlyRate') || 20.74;
+  const allPeriods = getPeriods();
+
+  // HPP accumulates only within the selected period's tax year
+  const pNum    = currentPeriodNum();
+  const curP    = allPeriods.find(x => x.num === pNum);
+  const ty      = curP ? getTaxYearForOffset(curP.num - 48) : CONFIG.TAX_YEARS[0];
+  const periods = allPeriods.filter(p => {
+    const o = p.num - 48;
+    return o >= ty.first && o <= ty.last;
+  });
+
   let totalVar  = 0;
   let pCount    = 0;
 
@@ -1379,7 +1459,14 @@ function calcHPP() {
     basisEl.textContent  = 'Enter hours across your periods above to calculate';
   } else {
     amountEl.textContent = fmt(hpp);
-    basisEl.textContent  = `${pCount} period${pCount > 1 ? 's' : ''} of data · ${fmt(totalVar)} variable pay × 7.69% (4/52)`;
+    basisEl.textContent  = `${pCount} period${pCount > 1 ? 's' : ''} of ${ty.label} · ${fmt(totalVar)} variable pay × 7.69% (4/52)`;
+  }
+
+  // Dynamic note — updates when tax year changes
+  const noteEl = document.getElementById('hppNote');
+  if (noteEl) {
+    const est = ty.label !== '2025/26' ? ' <em>Tax thresholds for 2026/27 are estimated pending final HMRC confirmation.</em>' : '';
+    noteEl.innerHTML = `<strong>Formula (confirmed by Chiltern payroll):</strong> Total variable pay (overtime + rest day hours + London Allowance) × 4/52 = 7.69%. Excludes basic pay, peer training, expenses and bonuses. This estimate covers the <strong>tax year ${ty.label}</strong> — Chiltern will pay it in <strong>January ${ty.hppPaidJan}</strong>. Pro-rated if you were not employed for the full year. The amount is not in dispute; only the 8–21 month lag in payment timing.${est}`;
   }
 }
 
@@ -1475,7 +1562,7 @@ function toggleBD() {
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 loadSettings();
-buildSelect();
+buildYearSelect();
 
 // Dismiss splash after first render
 const _splash = document.getElementById('splash');
