@@ -34,6 +34,8 @@ is understood when the time comes.
 
 ## The parent app — context you must know
 
+**Parent app current version: v6.08**
+
 The roster app (`index.html` + `admin.html`) is a vanilla-JS PWA hosted on Firebase. There is
 **no build step, no framework, no bundler**. External dependencies load from CDN only.
 
@@ -70,6 +72,7 @@ roster-app/
 | **Pure functions where possible** | JSDoc on all exported functions. Meaningful variable names. Error handling on all async operations. |
 | **CSS variables for all colours** | Defined in `:root` in `shared.css`. Never hardcode hex values in CSS or JS. |
 | **Semantic HTML** | `<nav>`, `<header>`, `<main>` — screen readers depend on these landmarks. |
+| **`dvh`/`vh` order** | Always write `min-height: 100vh` first (fallback), then `min-height: 100dvh` second. Browsers use the last valid value — `dvh` must come last so modern browsers use it; `vh` is the fallback for older browsers. Never put `dvh` first. |
 
 ---
 
@@ -119,11 +122,19 @@ These are the only colours you may use. Never write a hex value directly in a CS
 --rdw-text:          #880e4f   /* RDW text on light bg */
 --al:                #00897b   /* Annual leave */
 --al-light:          #e0f2f1
---sick:              #e53935   /* Sick day */
---sick-light:        #ffebee
+--absence:           #616161   /* Absence day — neutral grey (renamed from --sick in v6.01) */
+--absence-light:     #f5f5f5   /* Absence cell background */
+--absence-text:      #212121   /* Absence text on light bg — 15.8:1 contrast */
 --rest-day-bg:       #f9f9fb   /* Rest day cell background */
 --charcoal:          #2d2d2d   /* Rest day badge */
 --night:             #1a1a2e   /* Night shift badge */
+--ot:                #5c6bc0   /* Admin overtime pill */
+--ot-light:          #ede7f6   /* Admin overtime pill background */
+--green-hover:       #388e3c   /* Print button hover */
+--night-cell-bg:     rgba(20,20,40,0.10)
+--night-cell-border: rgba(20,20,40,0.30)
+--correction-text:   #e65100   /* Correction pill text */
+--today-print:       #fffde7   /* Softer gold for today highlight in print */
 
 /* Neutral */
 --text-dark:         #333      /* Primary body text */
@@ -414,7 +425,10 @@ createdAt   Firestore server timestamp
 "SPARE"           Standby — on call, shift not yet assigned
 "RDW"             Rest day worked — overtime, paid at a premium rate
 "AL"              Annual leave
-"SICK"            Sick day
+"SICK"            Absence day — covers sickness, family emergencies, any personal reason.
+                  Firestore value remains "SICK" and type remains "sick" — only the
+                  display label changed (renamed in roster app v6.01 for GDPR reasons).
+                  Display as "🪑 Absence", never "Sick".
 "HH:MM-HH:MM"    Worked shift — counts as a working day
 ```
 
@@ -484,7 +498,7 @@ import the logic or redirect to `admin.html`.
 `APP_VERSION` in `index.html` is the single source of truth. Rules:
 
 - **Increment by `0.01` on every commit that changes behaviour** — no exceptions.
-- **Always tell Gareth the new version number** when you make changes (e.g. "This is now v0.72").
+- **Always tell Gareth the new version number** when you make changes (e.g. "This is now v0.74").
 - The version lives at: `APP_VERSION: '0.XX'` near the top of the JS constants block.
 - A PostToolUse hook will auto-increment and remind you if you forget.
 
@@ -560,6 +574,13 @@ These were open questions at the start of the project. Answers are recorded here
 3. **Spare shifts** — not included in Phase 1 (manual entry; staff only enter hours actually worked).
 4. **Login requirement** — Phase 1 has no login. Anyone can open the calculator.
 5. **Historical depth** — all periods in the current tax year (P37–P51, 13 periods for 2025/26).
+6. **SW update behaviour** — the app shows a "Refresh now" banner when a new version is available.
+   The user taps it when they are ready. We never auto-reload silently because staff may be
+   mid-entry and a surprise reload would feel like data loss (even though localStorage saves
+   on every keystroke). The banner appears at the top of the screen; after reload a confirmation
+   toast appears at the bottom. The service worker `pay-service-worker.js` must contain
+   `const APP_VERSION = 'X.XX'` — the hook keeps this in sync with `index.html` automatically.
+   The browser only detects a new SW when this file changes byte-for-byte.
 
 ## Open questions for Phase 2 (merge)
 
