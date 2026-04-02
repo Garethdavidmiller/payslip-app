@@ -614,6 +614,25 @@ After merging into the parent repo, add both files to `service-worker.js`:
 './paycalc.js',
 ```
 
+### ⚠️ IMPORTANT — add this to `firebase.json` after merge
+
+Without this, the browser can cache the service worker file itself and staff will
+not see updates for hours even after a new version is deployed.
+
+Add a `Cache-Control: no-cache` header for the service worker file in `firebase.json`:
+
+```json
+"headers": [
+  {
+    "source": "/pay-service-worker.js",
+    "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+  }
+]
+```
+
+This tells the browser to always check for a new version of the service worker on
+every visit, rather than serving a stale cached copy.
+
 ---
 
 ## Print CSS
