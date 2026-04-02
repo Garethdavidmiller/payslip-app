@@ -980,7 +980,7 @@
 //     and the TAX / NI / SL threshold values below.
 //     P48 anchor (13 Feb 2026) stays fixed as the offset reference point.
 const CONFIG = {
-  APP_VERSION:    '0.79',
+  APP_VERSION:    '0.80',
   // Period arithmetic
   ANCHOR_DATE:    new Date(2026, 1, 13), // P48 payday: 13 Feb 2026 (fixed reference)
   PERIOD_DAYS:    28,
@@ -1116,7 +1116,7 @@ function buildPeriodSelect() {
   periods.forEach(p => {
     const o = document.createElement('option');
     o.value = p.num;
-    o.textContent = `P${p.num}  ·  ${fd(p.start)} – ${fdShort(p.payday)}`;
+    o.textContent = `P${p.num}  ·  ${fdShort(p.payday)} '${String(p.payday.getFullYear()).slice(2)}`;
     sel.appendChild(o);
     if (p.payday <= today) defPNum = p.num;
   });
