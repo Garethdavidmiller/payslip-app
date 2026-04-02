@@ -135,7 +135,6 @@
       transition: border-color 0.2s, box-shadow 0.2s;
     }
     .controls select:focus-visible { border-color: var(--accent-gold); box-shadow: 0 0 0 3px rgba(245,200,0,0.25); }
-    #yearSelect { flex: 0 0 auto; width: 108px; font-size: var(--type-body); }
     .period-meta { display: flex; justify-content: space-between; align-items: center; width: 100%; }
     .period-meta-text { font-size: var(--type-small); color: var(--text-faint); }
     .period-badge { font-size: var(--type-micro); font-weight: 800; background: var(--accent-gold); color: var(--primary-blue); padding: 3px 10px; border-radius: 50%; }
@@ -626,6 +625,8 @@
   <div class="controls">
     <div class="controls-row">
       <select id="yearSelect" onchange="onYearChange()"></select>
+    </div>
+    <div class="controls-row">
       <select id="periodSelect" onchange="onPeriodChange()"></select>
     </div>
     <div class="period-meta">
@@ -941,7 +942,7 @@
 //     and the TAX / NI / SL threshold values below.
 //     P48 anchor (13 Feb 2026) stays fixed as the offset reference point.
 const CONFIG = {
-  APP_VERSION:    '0.76',
+  APP_VERSION:    '0.77',
   // Period arithmetic
   ANCHOR_DATE:    new Date(2026, 1, 13), // P48 payday: 13 Feb 2026 (fixed reference)
   PERIOD_DAYS:    28,
