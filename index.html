@@ -16,6 +16,20 @@
       --primary-blue-dark: #00152a;
       --accent-gold:       #f5c800;
       --accent-gold-dark:  #e6bb00;
+      /* Shift type colours — matches shared.css / roster calendar */
+      --orange:            #ff9800;   /* Saturday / early-shift accent */
+      --orange-light:      #fff3e0;
+      --blue-sky:          #1565c0;   /* Late shift */
+      --blue-light:        #e3f2fd;
+      --rdw:               #c2185b;   /* Rest day worked — magenta */
+      --rdw-light:         #fce4ec;
+      --rdw-text:          #880e4f;
+      --ot:                #5c6bc0;   /* Overtime */
+      --ot-light:          #ede7f6;
+      --green:             #43a047;   /* Training / early */
+      --green-light:       #e8f5e9;
+      --al:                #00897b;   /* Annual leave */
+      --al-light:          #e0f2f1;
       /* Text */
       --text-dark:         #333;
       --text-mid:          #555;
@@ -152,7 +166,7 @@
     #periodSelect:focus-visible { border-color: var(--accent-gold); box-shadow: 0 0 0 3px rgba(245,200,0,0.25); }
     .period-meta { display: flex; justify-content: space-between; align-items: center; width: 100%; }
     .period-meta-text { font-size: var(--type-small); color: var(--text-faint); }
-    .period-badge { font-size: var(--type-micro); font-weight: 800; background: var(--accent-gold); color: var(--primary-blue); padding: 3px 10px; border-radius: 50%; }
+    .period-badge { font-size: var(--type-micro); font-weight: 800; background: var(--accent-gold); color: var(--primary-blue); padding: 3px 10px; border-radius: 50px; }
 
     /* Save indicator row */
     .save-row {
@@ -257,10 +271,20 @@
     }
     .h-sub { font-size: var(--type-small); color: var(--text-light); margin-top: 3px; line-height: 1.45; }
 
+    /* Rate badges — pill-shaped, colour-coded to match the roster's shift system */
     .rate-badge {
-      font-size: var(--type-micro); font-weight: 700; background: var(--accent-gold); color: var(--primary-blue);
-      padding: 2px 7px; border-radius: 50%; white-space: nowrap; flex-shrink: 0;
+      font-size: 11px; font-weight: 700;
+      padding: 3px 10px; border-radius: 50px;
+      white-space: nowrap; flex-shrink: 0;
+      display: inline-flex; align-items: center;
+      border: 1.5px solid transparent;
     }
+    .badge-sat  { background: var(--orange-light); color: var(--orange);   border-color: var(--orange);   }
+    .badge-ot   { background: var(--ot-light);     color: var(--ot);       border-color: var(--ot);       }
+    .badge-rdw  { background: var(--rdw-light);    color: var(--rdw-text); border-color: var(--rdw);      }
+    .badge-sun  { background: var(--blue-light);   color: var(--blue-sky); border-color: var(--blue-sky); }
+    .badge-box  { background: #fff8e1;             color: #bf6000;         border-color: var(--accent-gold); }
+    .badge-peer { background: var(--green-light);  color: var(--green);    border-color: var(--green);    }
 
     /* HH:MM input (all hours rows) */
     .hhmm-wrap { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
@@ -686,7 +710,7 @@
       <!-- Saturday -->
       <div class="hours-row">
         <div class="h-info">
-          <div class="h-title">Saturday Hours <span class="rate-badge" id="badge-sat">1.25×  ·  £25.92/hr</span></div>
+          <div class="h-title">Saturday Hours <span class="rate-badge badge-sat" id="badge-sat">1.25×  ·  £25.92/hr</span></div>
           <div class="h-sub">Any Saturday hours shown in your normal roster. Saturdays within your contracted week are paid at 1.25× your base rate.</div>
           <div class="val-warn" id="satWarn">⚠ Saturday hours cannot exceed 140</div>
         </div>
@@ -711,7 +735,7 @@
       <!-- Overtime -->
       <div class="hours-row">
         <div class="h-info">
-          <div class="h-title">Unrostered Overtime <span class="rate-badge" id="badge-ot">1.25×  ·  £25.92/hr</span></div>
+          <div class="h-title">Unrostered Overtime <span class="rate-badge badge-ot" id="badge-ot">1.25×  ·  £25.92/hr</span></div>
           <div class="h-sub" id="overtimeSub">Extra hours you worked beyond your base roster (Mon–Sat), before the cut-off. You'll see these as "Overtime 1.25" on your payslip.</div>
         </div>
         <div>
@@ -732,7 +756,7 @@
       <!-- Rostered RDW -->
       <div class="hours-row">
         <div class="h-info">
-          <div class="h-title">Rostered Rest Day Working <span class="rate-badge" id="badge-rdw">1.25×  ·  £25.92/hr</span></div>
+          <div class="h-title">Rostered Rest Day Working <span class="rate-badge badge-rdw" id="badge-rdw">1.25×  ·  £25.92/hr</span></div>
           <div class="h-sub" id="rdwSub">Hours rostered on a day that would normally be your rest day (Mon–Sat), before the cut-off. These appear as "RDW 1.25" on your payslip.</div>
         </div>
         <div>
@@ -753,7 +777,7 @@
       <!-- Sunday RDW -->
       <div class="hours-row">
         <div class="h-info">
-          <div class="h-title">Sunday Working <span class="rate-badge" id="badge-sun">1.5×  ·  £31.11/hr</span></div>
+          <div class="h-title">Sunday Working <span class="rate-badge badge-sun" id="badge-sun">1.5×  ·  £31.11/hr</span></div>
           <div class="h-sub" id="sundaySub">Any hours worked on a Sunday, before the cut-off. Sundays are not part of your contracted week, so all Sunday hours are at 1.5×. These appear as "RDW Sun 1.5" on your payslip.</div>
         </div>
         <div>
@@ -774,7 +798,7 @@
       <!-- Boxing Day -->
       <div class="hours-row hidden" id="boxingRow">
         <div class="h-info">
-          <div class="h-title">Boxing Day Working <span class="rate-badge" id="badge-box">3×  ·  £62.22/hr</span></div>
+          <div class="h-title">Boxing Day Working <span class="rate-badge badge-box" id="badge-box">3×  ·  £62.22/hr</span></div>
           <div class="h-sub">Hours worked on 26 December. This overrides all other rates — even if it falls on a Sunday. Appears as "Bank Holiday Overtime 3.0" on your payslip.</div>
         </div>
         <div>
@@ -797,7 +821,7 @@
 
       <div class="hours-row">
         <div class="h-info">
-          <div class="h-title">Training Days <span class="rate-badge">+2 hrs pay</span></div>
+          <div class="h-title">Training Days <span class="rate-badge badge-peer">+2 hrs pay</span></div>
           <div class="h-sub">Number of days you spent training a new or existing colleague this period. Each training day adds 2 hours of pay at your base rate (£20.74/hr). Shown as extra basic pay on your payslip.</div>
         </div>
         <div class="stepper">
@@ -956,7 +980,7 @@
 //     and the TAX / NI / SL threshold values below.
 //     P48 anchor (13 Feb 2026) stays fixed as the offset reference point.
 const CONFIG = {
-  APP_VERSION:    '0.78',
+  APP_VERSION:    '0.79',
   // Period arithmetic
   ANCHOR_DATE:    new Date(2026, 1, 13), // P48 payday: 13 Feb 2026 (fixed reference)
   PERIOD_DAYS:    28,
