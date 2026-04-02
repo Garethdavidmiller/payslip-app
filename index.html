@@ -121,20 +121,35 @@
       margin-bottom: 16px;
       display: flex; flex-direction: column; gap: 8px; align-items: center;
     }
-    .controls-row { display: flex; gap: 8px; align-items: center; justify-content: center; width: 100%; }
-    .controls select {
-      flex: 1; padding: 9px 30px 9px 14px;
+
+    /* Prev | select | Next row — mirrors the roster app's nav pattern */
+    .period-nav { display: flex; align-items: center; gap: 8px; width: 100%; }
+    .nav-pill {
+      flex-shrink: 0;
+      padding: 10px 14px;
+      background: var(--primary-blue); color: white;
+      border: none; border-radius: var(--radius-md);
+      font-family: inherit; font-size: 13px; font-weight: 700;
+      cursor: pointer; touch-action: manipulation;
+      transition: background 0.15s; white-space: nowrap;
+    }
+    .nav-pill:disabled { opacity: 0.28; cursor: not-allowed; }
+    @media (hover: hover) and (pointer: fine) {
+      .nav-pill:hover:not(:disabled) { background: var(--primary-blue-dark); }
+    }
+    #periodSelect {
+      flex: 1; padding: 9px 30px 9px 10px; min-width: 0;
       border: 2px solid var(--border-mid); border-radius: var(--radius-sm);
-      font-family: inherit; font-size: var(--type-medium); font-weight: 600;
+      font-family: inherit; font-size: var(--type-body); font-weight: 700;
       color: var(--primary-blue); background: white;
       appearance: none; -webkit-appearance: none;
       text-align: center; text-align-last: center;
       background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23001e3c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-      background-repeat: no-repeat; background-position: right 10px center; background-size: 1em;
+      background-repeat: no-repeat; background-position: right 8px center; background-size: 0.9em;
       cursor: pointer; touch-action: manipulation;
       transition: border-color 0.2s, box-shadow 0.2s;
     }
-    .controls select:focus-visible { border-color: var(--accent-gold); box-shadow: 0 0 0 3px rgba(245,200,0,0.25); }
+    #periodSelect:focus-visible { border-color: var(--accent-gold); box-shadow: 0 0 0 3px rgba(245,200,0,0.25); }
     .period-meta { display: flex; justify-content: space-between; align-items: center; width: 100%; }
     .period-meta-text { font-size: var(--type-small); color: var(--text-faint); }
     .period-badge { font-size: var(--type-micro); font-weight: 800; background: var(--accent-gold); color: var(--primary-blue); padding: 3px 10px; border-radius: 50%; }
@@ -623,11 +638,10 @@
 
   <!-- PERIOD SELECTOR -->
   <div class="controls">
-    <div class="controls-row">
-      <select id="yearSelect" onchange="onYearChange()"></select>
-    </div>
-    <div class="controls-row">
+    <div class="period-nav">
+      <button class="nav-pill" id="prevBtn" onclick="prevPeriod()">← Prev</button>
       <select id="periodSelect" onchange="onPeriodChange()"></select>
+      <button class="nav-pill" id="nextBtn" onclick="nextPeriod()">Next →</button>
     </div>
     <div class="period-meta">
       <span class="period-meta-text" id="cutoffInfo"></span>
@@ -942,7 +956,7 @@
 //     and the TAX / NI / SL threshold values below.
 //     P48 anchor (13 Feb 2026) stays fixed as the offset reference point.
 const CONFIG = {
-  APP_VERSION:    '0.77',
+  APP_VERSION:    '0.78',
   // Period arithmetic
   ANCHOR_DATE:    new Date(2026, 1, 13), // P48 payday: 13 Feb 2026 (fixed reference)
   PERIOD_DAYS:    28,
@@ -1068,42 +1082,14 @@ function getThresholds(yearLabel) {
 }
 
 // ── PERIOD SELECT ─────────────────────────────────────────────────────────────
-function buildYearSelect() {
-  const sel     = document.getElementById('yearSelect');
-  const today   = new Date();
-  const periods = getPeriods();
-
-  // Find tax year of the most recent past period
-  const todayP  = periods.slice().reverse().find(p => p.payday <= today);
-  const defTY   = todayP ? getTaxYearForOffset(todayP.num - 48) : CONFIG.TAX_YEARS[0];
-
-  sel.innerHTML = '';
-  CONFIG.TAX_YEARS.forEach(ty => {
-    const o = document.createElement('option');
-    o.value = ty.label;
-    o.textContent = ty.label;
-    if (ty.label === defTY.label) o.selected = true;
-    sel.appendChild(o);
-  });
-
-  buildPeriodSelect(defTY.label, todayP ? todayP.num : null);
-}
-
-function buildPeriodSelect(yearLabel, selectPNum) {
+function buildPeriodSelect() {
   const sel     = document.getElementById('periodSelect');
   const periods = getPeriods();
   const today   = new Date();
-  const taxYear = CONFIG.TAX_YEARS.find(ty => ty.label === yearLabel);
-  if (!taxYear) return;
-
-  const yPeriods = periods.filter(p => {
-    const o = p.num - 48;
-    return o >= taxYear.first && o <= taxYear.last;
-  });
+  let   defPNum = periods[0].num;
 
   sel.innerHTML = '';
-  let defPNum = yPeriods[0].num;
-  yPeriods.forEach(p => {
+  periods.forEach(p => {
     const o = document.createElement('option');
     o.value = p.num;
     o.textContent = `P${p.num}  ·  ${fd(p.start)} – ${fdShort(p.payday)}`;
@@ -1111,25 +1097,42 @@ function buildPeriodSelect(yearLabel, selectPNum) {
     if (p.payday <= today) defPNum = p.num;
   });
 
-  // Use provided period if it belongs to this year, else fall back to default
-  const targetNum = (selectPNum && yPeriods.find(p => p.num === selectPNum))
-    ? selectPNum : defPNum;
-  sel.value = targetNum;
+  sel.value = defPNum;
   onPeriodChange();
 }
 
-function onYearChange() {
-  buildPeriodSelect(document.getElementById('yearSelect').value, null);
+function prevPeriod() {
+  const sel     = document.getElementById('periodSelect');
+  const periods = getPeriods();
+  const idx     = periods.findIndex(x => x.num === +sel.value);
+  if (idx > 0) { sel.value = periods[idx - 1].num; onPeriodChange(); }
+}
+
+function nextPeriod() {
+  const sel     = document.getElementById('periodSelect');
+  const periods = getPeriods();
+  const idx     = periods.findIndex(x => x.num === +sel.value);
+  if (idx < periods.length - 1) { sel.value = periods[idx + 1].num; onPeriodChange(); }
 }
 
 function onPeriodChange() {
-  const pNum   = +document.getElementById('periodSelect').value;
-  const p      = getPeriods().find(x => x.num === pNum);
+  const pNum    = +document.getElementById('periodSelect').value;
+  const periods = getPeriods();
+  const p       = periods.find(x => x.num === pNum);
   if (!p) return;
-  const cutStr = fdShort(p.cutoff);
+  const cutStr  = fdShort(p.cutoff);
+
+  // Prev / Next button states
+  const idx = periods.findIndex(x => x.num === pNum);
+  document.getElementById('prevBtn').disabled = (idx <= 0);
+  document.getElementById('nextBtn').disabled = (idx >= periods.length - 1);
+
+  // Show tax year in meta row
+  const ty = getTaxYearForOffset(p.num - 48);
+  document.getElementById('cutoffInfo').textContent =
+    `${ty.label}  ·  Cut-off: ${cutStr}  ·  Paid: ${fdShort(p.payday)}`;
 
   document.getElementById('periodBadge').textContent = `P${p.num}`;
-  document.getElementById('cutoffInfo').textContent  = `Cut-off: ${cutStr}  ·  Paid: ${fdShort(p.payday)}`;
   document.getElementById('netPeriod').textContent   = `Paid ${fd(p.payday)}`;
 
   // Update cut-off date in RDW descriptions
@@ -1563,7 +1566,7 @@ function toggleBD() {
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 loadSettings();
-buildYearSelect();
+buildPeriodSelect();
 
 // Dismiss splash after first render
 const _splash = document.getElementById('splash');
