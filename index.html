@@ -1703,7 +1703,13 @@ if (_splash) {
           }
         });
       });
-      setInterval(() => reg.update(), 60 * 60 * 1000);
+      // Poll every 15 minutes (backup check)
+      setInterval(() => reg.update(), 15 * 60 * 1000);
+      // Also check whenever the user returns to the tab — catches updates after the app
+      // has been open in the background for a while (most common real-world scenario)
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') reg.update();
+      });
     });
   }
 
