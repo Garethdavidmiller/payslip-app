@@ -393,7 +393,7 @@
     }
     .setup-banner h2 { font-size: 15px; font-weight: 800; color: var(--primary-blue); margin-bottom: 4px; }
     .setup-banner p  { font-size: 13px; color: var(--text-mid); line-height: 1.5; }
-    .privacy-note { font-size: var(--type-small) !important; color: var(--text-light) !important; margin-top: 8px; }
+    .privacy-note { font-size: var(--type-small); color: var(--text-mid); margin-top: 10px; padding: 8px 10px; background: var(--bg-faint); border-left: 3px solid var(--primary-blue); border-radius: 0 6px 6px 0; line-height: 1.5; }
 
     /* Disclaimer */
     .disclaimer {
@@ -661,7 +661,7 @@
   <div class="setup-banner" id="setupBanner">
     <h2>👋 Welcome — check your settings first</h2>
     <p>Before calculating, scroll down to <strong>Your Settings</strong> and confirm your hourly rate and tax code are correct. Your settings are saved automatically and only need setting once.</p>
-    <p class="privacy-note">Your pay data is saved on this device only — it is never sent to any server or seen by anyone else.</p>
+    <p class="privacy-note">🔒 Your pay data is saved on this device only. It is never uploaded to any server, stored in a database, or seen by anyone else — including Chiltern Railways.</p>
   </div>
 
   <!-- PERIOD SELECTOR -->
@@ -866,7 +866,8 @@
       <span class="hint">Difference owed across backdated periods</span>
     </div>
     <div class="card-body">
-      <p class="card-explainer">When a pay rise is agreed mid-year and backdated to the start of the tax year, you are owed the difference for every period already paid at the old rate. Enter both rates below to see what is owed per period and in total.</p>
+      <p class="card-explainer">When a pay award is backdated to the start of the tax year, you are owed the difference for every period already paid at the old rate. The award applies to both your hourly rate and London Allowance — enter both below.</p>
+      <label style="font-size:13px;font-weight:600;color:var(--text-mid);display:block;margin-bottom:4px">Hourly rate</label>
       <div style="display:flex; gap:8px; margin-bottom:12px;">
         <div class="pfx" style="flex:1">
           <span class="pfx-sym">£</span>
@@ -876,6 +877,18 @@
         <div class="pfx" style="flex:1">
           <span class="pfx-sym">£</span>
           <input type="number" id="newRateInput" step="0.01" min="0" placeholder="New rate" oninput="calcBackPay()">
+        </div>
+      </div>
+      <label style="font-size:13px;font-weight:600;color:var(--text-mid);display:block;margin-bottom:4px">London Allowance <span style="font-weight:400;color:var(--text-light)">(per period)</span></label>
+      <div style="display:flex; gap:8px; margin-bottom:12px;">
+        <div class="pfx" style="flex:1">
+          <span class="pfx-sym">£</span>
+          <input type="number" id="oldLondon" step="0.01" min="0" placeholder="Old allowance" oninput="calcBackPay()">
+        </div>
+        <div style="display:flex; align-items:center; font-size:18px; color:var(--text-light); padding-bottom:0">→</div>
+        <div class="pfx" style="flex:1">
+          <span class="pfx-sym">£</span>
+          <input type="number" id="newLondon" step="0.01" min="0" placeholder="New allowance" oninput="calcBackPay()">
         </div>
       </div>
       <div id="backPayRows"></div>
@@ -1006,14 +1019,13 @@ const CONFIG = {
   // 2026/27: P50 (paid ~10 Apr 2026) → P62 (paid ~11 Mar 2027)  offsets  +2 to +14
   // hppPaidJan = the January in which Chiltern pay that year's HPP lump sum
   TAX_YEARS: [
-    { label: '2025/26', first: -11, last:  1, hppPaidJan: 2027 },
-    { label: '2026/27', first:   2, last: 14, hppPaidJan: 2028 },
+    { label: '2025/26', first: -11, last:  1, hppPaidJan: 2027, londonAllow: 276.16 }, // £3,590.08/yr ÷ 13
+    { label: '2026/27', first:   2, last: 14, hppPaidJan: 2028, londonAllow: 276.16 }, // ⚠️ Update when pay award confirmed
   ],
 };
 
 // Convenience aliases (keeps calculation code readable)
 const P_YR   = CONFIG.PERIODS_PER_YR;
-const LONDON = CONFIG.LONDON_ALLOW;
 const CONTR  = CONFIG.CONTRACTED_HRS;
 
 // ── TAX & NI THRESHOLDS BY TAX YEAR ──────────────────────────────────────────
@@ -1109,9 +1121,11 @@ function getTaxYearForOffset(offset) {
   return CONFIG.TAX_YEARS.find(ty => offset >= ty.first && offset <= ty.last) || CONFIG.TAX_YEARS[0];
 }
 function getThresholds(yearLabel) {
+  const ty = CONFIG.TAX_YEARS.find(t => t.label === yearLabel) || CONFIG.TAX_YEARS[0];
   return {
-    tax: TAX_BY_YEAR[yearLabel] || TAX_BY_YEAR['2025/26'],
-    ni:  NI_BY_YEAR[yearLabel]  || NI_BY_YEAR['2025/26'],
+    tax:         TAX_BY_YEAR[yearLabel] || TAX_BY_YEAR['2025/26'],
+    ni:          NI_BY_YEAR[yearLabel]  || NI_BY_YEAR['2025/26'],
+    londonAllow: ty.londonAllow,
   };
 }
 
@@ -1342,7 +1356,7 @@ function calculate() {
   const _pNum   = currentPeriodNum();
   const _curP   = getPeriods().find(x => x.num === _pNum);
   const _ty     = _curP ? getTaxYearForOffset(_curP.num - 48) : CONFIG.TAX_YEARS[0];
-  const { tax: TAX, ni: NI } = getThresholds(_ty.label);
+  const { tax: TAX, ni: NI, londonAllow: LONDON } = getThresholds(_ty.label);
 
   const rate = numVal('hourlyRate') || 20.74;
   updateBadges(rate);
@@ -1429,7 +1443,7 @@ function calculate() {
     bd += `<div class="bd-row"><span class="b-lbl">Boxing Day Working (${fh(bHrs)} × ${fmt(r300)})</span><span class="b-val">${fmt(gBoxing)}</span></div>`;
   if (peer > 0)
     bd += `<div class="bd-row"><span class="b-lbl">Training Days (${peer} day${peer>1?'s':''} × 2h × ${fmt(rate)})</span><span class="b-val">${fmt(gPeer)}</span></div>`;
-  bd += `<div class="bd-row"><span class="b-lbl">London Allowance (fixed every period)</span><span class="b-val">${fmt(LONDON)}</span></div>`;
+  bd += `<div class="bd-row"><span class="b-lbl">London Allowance</span><span class="b-val">${fmt(LONDON)}</span></div>`;
   document.getElementById('bdBody').innerHTML = bd;
 
   calcHPP();
@@ -1476,13 +1490,14 @@ function calcHPP() {
       // Full OT, RDW, Sunday, Boxing pay
       // London Allowance (London Shift Supplement — explicitly included)
       // NOT peer training (extra basic, not listed)
+      const { londonAllow: pLondon } = getThresholds(getTaxYearForOffset(p.num - 48).label);
       const varPay =
         satHrs  * (rate * 0.25) +  // sat uplift above base rate
         otHrs   * r125           +  // full OT pay (1.25× on top of base covered by basic)
         rdwHrs  * r125           +  // full RDW pay
         sunHrs  * r150           +  // full Sunday pay
         boxHrs  * r300           +  // full Boxing Day pay
-        LONDON;                     // London Allowance per period
+        pLondon;                    // London Allowance per period (year-specific)
 
       totalVar += varPay;
     } catch(e) {}
@@ -1517,28 +1532,43 @@ function toggleBackPay() {
   btn.textContent = showing
     ? 'Show pay rise back-pay calculator ↑'
     : 'Hide pay rise back-pay calculator ↑';
-  if (!showing) calcBackPay();
+  if (!showing) {
+    // Pre-fill London Allowance with current period's value as a convenience
+    const pNum = currentPeriodNum();
+    const curP = getPeriods().find(x => x.num === pNum);
+    const ty   = curP ? getTaxYearForOffset(curP.num - 48) : CONFIG.TAX_YEARS[0];
+    const la   = ty.londonAllow;
+    const oldLondonEl = document.getElementById('oldLondon');
+    if (!oldLondonEl.value) oldLondonEl.value = la.toFixed(2);
+    calcBackPay();
+  }
 }
 
 function calcBackPay() {
-  const oldRate = parseFloat(document.getElementById('oldRate').value);
-  const newRate = parseFloat(document.getElementById('newRateInput').value);
-  const rowsEl  = document.getElementById('backPayRows');
-  const totalEl = document.getElementById('backPayTotal');
-  const totalAmtEl  = document.getElementById('backPayTotalAmt');
-  const totalBasEl  = document.getElementById('backPayTotalBasis');
+  const oldRate   = parseFloat(document.getElementById('oldRate').value);
+  const newRate   = parseFloat(document.getElementById('newRateInput').value);
+  const oldLondon = parseFloat(document.getElementById('oldLondon').value);
+  const newLondon = parseFloat(document.getElementById('newLondon').value);
+  const rowsEl     = document.getElementById('backPayRows');
+  const totalEl    = document.getElementById('backPayTotal');
+  const totalAmtEl = document.getElementById('backPayTotalAmt');
+  const totalBasEl = document.getElementById('backPayTotalBasis');
 
-  if (!oldRate || !newRate || newRate <= oldRate) {
+  const hasRate   = oldRate   > 0 && newRate   > 0 && newRate   > oldRate;
+  const hasLondon = oldLondon > 0 && newLondon > 0 && newLondon > oldLondon;
+
+  if (!hasRate && !hasLondon) {
     rowsEl.innerHTML = '';
     totalEl.style.display = 'none';
     return;
   }
 
-  const diff    = newRate - oldRate;
-  const periods = getPeriods();
-  let rows      = '';
-  let grandTotal = 0;
-  let pCount    = 0;
+  const rateDiff   = hasRate   ? newRate   - oldRate   : 0;
+  const londonDiff = hasLondon ? newLondon - oldLondon : 0;
+  const periods    = getPeriods();
+  let rows         = '';
+  let grandTotal   = 0;
+  let pCount       = 0;
 
   periods.forEach(p => {
     try {
@@ -1552,15 +1582,19 @@ function calcBackPay() {
       const rdwHrs = (d.rdwH || 0) + (d.rdwM || 0) / 60;
       const sunHrs = (d.sunH || 0) + (d.sunM || 0) / 60;
       const boxHrs = (d.boxH || 0) + (d.boxM || 0) / 60;
-      // Back pay = difference in gross at new vs old rate for every hour type
-      const backPay =
-        CONTR   * diff        +   // 140 basic hours
-        satHrs  * diff * 0.25 +   // extra sat uplift on diff
-        otHrs   * diff * 1.25 +
-        rdwHrs  * diff * 1.25 +
-        sunHrs  * diff * 1.50 +
-        boxHrs  * diff * 3.00 +
-        (d.peer || 0) * 2 * diff;
+
+      // Hourly rate back pay — applies to all hour types at their multipliers
+      const ratePay =
+        CONTR   * rateDiff        +   // 140 contracted basic hours
+        satHrs  * rateDiff * 0.25 +   // extra sat uplift on the rate diff
+        otHrs   * rateDiff * 1.25 +
+        rdwHrs  * rateDiff * 1.25 +
+        sunHrs  * rateDiff * 1.50 +
+        boxHrs  * rateDiff * 3.00 +
+        (d.peer || 0) * 2 * rateDiff;
+
+      // London Allowance back pay — flat per period, independent of hours
+      const backPay = ratePay + londonDiff;
 
       if (backPay > 0) {
         grandTotal += backPay;
@@ -1578,7 +1612,10 @@ function calcBackPay() {
   if (grandTotal > 0) {
     totalEl.style.display = 'block';
     totalAmtEl.textContent = fmt(grandTotal);
-    totalBasEl.textContent = `Across ${pCount} period${pCount > 1 ? 's' : ''} · rate increase ${fmt(oldRate)} → ${fmt(newRate)}`;
+    const parts = [];
+    if (hasRate)   parts.push(`rate ${fmt(oldRate)} → ${fmt(newRate)}`);
+    if (hasLondon) parts.push(`London Allow ${fmt(oldLondon)} → ${fmt(newLondon)}`);
+    totalBasEl.textContent = `Across ${pCount} period${pCount > 1 ? 's' : ''} · ${parts.join(' · ')}`;
   } else {
     totalEl.style.display = 'none';
   }
