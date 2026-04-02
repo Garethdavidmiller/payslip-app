@@ -265,11 +265,89 @@ body {
 .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
 ```
 
+### Navigation pill buttons (Prev / Next style — matches the roster app)
+```html
+<button class="nav-pill" id="prevBtn" onclick="prevPeriod()">← Prev</button>
+<button class="nav-pill" id="nextBtn" onclick="nextPeriod()">Next →</button>
+```
+```css
+.nav-pill {
+    flex-shrink: 0;
+    padding: 10px 14px;
+    background: var(--primary-blue); color: white;
+    border: none; border-radius: var(--radius-md);
+    font-size: 13px; font-weight: 700;
+    cursor: pointer; touch-action: manipulation;
+    transition: background 0.15s; white-space: nowrap;
+}
+.nav-pill:disabled { opacity: 0.28; cursor: not-allowed; }
+@media (hover: hover) and (pointer: fine) {
+    .nav-pill:hover:not(:disabled) { background: var(--primary-blue-dark); }
+}
+```
+The period selector uses `← Prev | <select> | Next →` — mirroring the roster app's
+`← Prev | G. Miller ▼ | Next →` navigation pattern.
+
+### Pill badges — border-radius rule
+Always use `border-radius: 50px` for pill-shaped badges, **never `border-radius: 50%`**.
+`50%` makes the pill height-relative — it produces a circle on short text and an oval on
+long text. `50px` gives consistent rounded ends regardless of content width, which is how
+the roster's shift badges work.
+
+```css
+/* Correct */
+.my-badge { border-radius: 50px; }
+
+/* Wrong — produces circles/ovals */
+.my-badge { border-radius: 50%; }
+```
+
+### Rate badges — colour-coded to match the roster's shift system
+Each pay type uses the same colour as its equivalent in the roster calendar. Apply both
+the base class and the colour variant:
+
+```html
+<span class="rate-badge badge-sat"  id="badge-sat">1.25× · £25.92/hr</span>
+<span class="rate-badge badge-ot"   id="badge-ot" >1.25× · £25.92/hr</span>
+<span class="rate-badge badge-rdw"  id="badge-rdw">1.25× · £25.92/hr</span>
+<span class="rate-badge badge-sun"  id="badge-sun">1.5×  · £31.11/hr</span>
+<span class="rate-badge badge-box"  id="badge-box">3×    · £62.22/hr</span>
+<span class="rate-badge badge-peer">+2 hrs pay</span>
+```
+
+| Class | Colour | Roster equivalent |
+|-------|--------|-------------------|
+| `.badge-sat`  | Orange  | Early shift / contracted premium |
+| `.badge-ot`   | Indigo  | Admin OT pill (`--ot`) |
+| `.badge-rdw`  | Magenta | RDW calendar colour (`--rdw`) |
+| `.badge-sun`  | Blue    | Late shift (`--blue-sky`) |
+| `.badge-box`  | Gold    | Boxing Day / special |
+| `.badge-peer` | Green   | Training / early (`--green`) |
+
+```css
+.rate-badge {
+    font-size: 11px; font-weight: 700;
+    padding: 3px 10px; border-radius: 50px;
+    white-space: nowrap; flex-shrink: 0;
+    display: inline-flex; align-items: center;
+    border: 1.5px solid transparent;
+}
+.badge-sat  { background: var(--orange-light); color: var(--orange);   border-color: var(--orange);   }
+.badge-ot   { background: var(--ot-light);     color: var(--ot);       border-color: var(--ot);       }
+.badge-rdw  { background: var(--rdw-light);    color: var(--rdw-text); border-color: var(--rdw);      }
+.badge-sun  { background: var(--blue-light);   color: var(--blue-sky); border-color: var(--blue-sky); }
+.badge-box  { background: #fff8e1;             color: #bf6000;         border-color: var(--accent-gold); }
+.badge-peer { background: var(--green-light);  color: var(--green);    border-color: var(--green);    }
+```
+
 ### Page header (top of page, same style as existing pages)
 ```html
 <header class="app-header">
-    <span class="app-icon" ...><!-- icon --></span>
-    <h1>Pay Calculator</h1>
+    <img src="..." class="app-icon" id="appIcon">
+    <div>
+        <h1>Marylebone Pay Calculator</h1>
+        <!-- No grade hint here — grade lives in the Settings card -->
+    </div>
 </header>
 ```
 ```css
@@ -564,6 +642,52 @@ Any new shift type, cell class, or badge introduced in this page needs rules ins
 
 ---
 
+## Tax year system
+
+The app covers two tax years. Tax years run **April → March** (by payday date).
+
+```javascript
+CONFIG.TAX_YEARS = [
+  { label: '2025/26', first: -11, last:  1, hppPaidJan: 2027 },
+  { label: '2026/27', first:   2, last: 14, hppPaidJan: 2028 },
+];
+// `first` and `last` are offsets from the anchor period (P48, 13 Feb 2026)
+// 2025/26: P37 (Apr 2025) → P49 (Mar 2026)   offsets -11 to +1
+// 2026/27: P50 (Apr 2026) → P62 (Mar 2027)   offsets  +2 to +14
+```
+
+Tax/NI thresholds are stored per year in `TAX_BY_YEAR` and `NI_BY_YEAR`. The
+`calculate()` function resolves the right thresholds from the selected period's tax year
+via `getTaxYearForOffset(offset)` and `getThresholds(yearLabel)`. Do not use a single
+global `TAX`/`NI` object — always look up by tax year.
+
+HPP accumulates **only within the selected period's tax year**. `calcHPP()` filters the
+period list to the current year before summing variable pay. The HPP note card updates
+dynamically to show the correct tax year and January payment date.
+
+**⚠️ Each April:** add a new entry to `CONFIG.TAX_YEARS`, add corresponding entries to
+`TAX_BY_YEAR` and `NI_BY_YEAR`, and extend `LAST_OFFSET` by 13.
+
+---
+
+## Planned grades — do not build yet
+
+The calculator currently serves **CEA grade** only. Future grades planned:
+
+- **CES** (Customer Experience Supervisor)
+- **Dispatch**
+
+Each grade has different contracted hours, hourly rates, and potentially different pay
+multipliers. When the time comes, a grade selector will be added to the Settings card.
+The selected grade will drive which CONFIG values are used.
+
+**For now:** `CONFIG.GRADE = 'CEA'` is a static constant. The grade label is shown in the
+Settings card header (not the app header), so it is easy to find and will be a natural
+place to put a selector later. Do not add other grades or make the grade selectable yet.
+Do not show CES or Dispatch anywhere in the UI.
+
+---
+
 ## Key design decisions (Phase 1 — resolved)
 
 These were open questions at the start of the project. Answers are recorded here for context.
@@ -573,14 +697,16 @@ These were open questions at the start of the project. Answers are recorded here
 2. **Contracted hours** — 140 hours per 28-day period. Saturday hours are capped at 140h.
 3. **Spare shifts** — not included in Phase 1 (manual entry; staff only enter hours actually worked).
 4. **Login requirement** — Phase 1 has no login. Anyone can open the calculator.
-5. **Historical depth** — all periods in the current tax year (P37–P51, 13 periods for 2025/26).
+5. **Historical depth** — two full tax years: 2025/26 (P37–P49) and 2026/27 (P50–P62), 26
+   periods total. Period navigation uses `← Prev | select | Next →`, matching the roster app.
 6. **SW update behaviour** — the app shows a "Refresh now" banner when a new version is available.
    The user taps it when they are ready. We never auto-reload silently because staff may be
    mid-entry and a surprise reload would feel like data loss (even though localStorage saves
    on every keystroke). The banner appears at the top of the screen; after reload a confirmation
    toast appears at the bottom. The service worker `pay-service-worker.js` must contain
-   `const APP_VERSION = 'X.XX'` — the hook keeps this in sync with `index.html` automatically.
-   The browser only detects a new SW when this file changes byte-for-byte.
+   `const APP_VERSION = 'X.XX'` — the hook keeps this in sync with `index.html` automatically
+   **and stages the file** so it is always included in the next commit. The browser only detects
+   a new SW when this file changes byte-for-byte.
 
 ## Open questions for Phase 2 (merge)
 
@@ -588,6 +714,8 @@ These were open questions at the start of the project. Answers are recorded here
   `getPaydaysAndCutoffs()`, or a shared utility?
 - Should the calculator share the roster app's existing `localStorage` namespace, or keep
   its own `cea_p*` keys?
+- When grade selector is added, should grade be stored in `localStorage` alongside the
+  other settings, or derived from the logged-in user's profile after Phase 2 merge?
 
 ---
 

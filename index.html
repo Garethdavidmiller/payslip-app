@@ -136,10 +136,23 @@
       display: flex; flex-direction: column; gap: 8px; align-items: center;
     }
 
-    /* Prev | select | Next row — mirrors the roster app's nav pattern */
-    .period-nav { display: flex; align-items: center; gap: 8px; width: 100%; }
+    /* Period selector: full-width select on top, Prev/Next pair below */
+    #periodSelect {
+      width: 100%; padding: 10px 30px 10px 14px;
+      border: 2px solid var(--border-mid); border-radius: var(--radius-sm);
+      font-family: inherit; font-size: var(--type-medium); font-weight: 700;
+      color: var(--primary-blue); background: white;
+      appearance: none; -webkit-appearance: none;
+      text-align: center; text-align-last: center;
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23001e3c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+      background-repeat: no-repeat; background-position: right 10px center; background-size: 1em;
+      cursor: pointer; touch-action: manipulation;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    #periodSelect:focus-visible { border-color: var(--accent-gold); box-shadow: 0 0 0 3px rgba(245,200,0,0.25); }
+    .period-nav { display: flex; gap: 8px; width: 100%; }
     .nav-pill {
-      flex-shrink: 0;
+      flex: 1;
       padding: 10px 14px;
       background: var(--primary-blue); color: white;
       border: none; border-radius: var(--radius-md);
@@ -151,19 +164,6 @@
     @media (hover: hover) and (pointer: fine) {
       .nav-pill:hover:not(:disabled) { background: var(--primary-blue-dark); }
     }
-    #periodSelect {
-      flex: 1; padding: 9px 30px 9px 10px; min-width: 0;
-      border: 2px solid var(--border-mid); border-radius: var(--radius-sm);
-      font-family: inherit; font-size: var(--type-body); font-weight: 700;
-      color: var(--primary-blue); background: white;
-      appearance: none; -webkit-appearance: none;
-      text-align: center; text-align-last: center;
-      background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23001e3c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-      background-repeat: no-repeat; background-position: right 8px center; background-size: 0.9em;
-      cursor: pointer; touch-action: manipulation;
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    #periodSelect:focus-visible { border-color: var(--accent-gold); box-shadow: 0 0 0 3px rgba(245,200,0,0.25); }
     .period-meta { display: flex; justify-content: space-between; align-items: center; width: 100%; }
     .period-meta-text { font-size: var(--type-small); color: var(--text-faint); }
     .period-badge { font-size: var(--type-micro); font-weight: 800; background: var(--accent-gold); color: var(--primary-blue); padding: 3px 10px; border-radius: 50px; }
@@ -648,7 +648,7 @@
            class="app-icon" id="appIcon" loading="eager">
     <div>
       <h1>Marylebone Pay Calculator</h1>
-      <span class="hint">CEA Grade</span>
+
     </div>
   </header>
 
@@ -662,9 +662,9 @@
 
   <!-- PERIOD SELECTOR -->
   <div class="controls">
+    <select id="periodSelect" onchange="onPeriodChange()"></select>
     <div class="period-nav">
       <button class="nav-pill" id="prevBtn" onclick="prevPeriod()">← Prev</button>
-      <select id="periodSelect" onchange="onPeriodChange()"></select>
       <button class="nav-pill" id="nextBtn" onclick="nextPeriod()">Next →</button>
     </div>
     <div class="period-meta">
@@ -883,7 +883,7 @@
   <div class="content-card">
     <div class="card-header">
       <h2>Your Settings</h2>
-      <span class="hint">Your pay rate, tax code, and deduction details</span>
+      <span class="hint">Your pay rate, tax code, and deduction details · <strong id="gradeLabel">CEA Grade</strong></span>
     </div>
     <div class="card-body">
 
@@ -980,12 +980,14 @@
 //     and the TAX / NI / SL threshold values below.
 //     P48 anchor (13 Feb 2026) stays fixed as the offset reference point.
 const CONFIG = {
-  APP_VERSION:    '0.80',
+  APP_VERSION:    '0.81',
   // Period arithmetic
   ANCHOR_DATE:    new Date(2026, 1, 13), // P48 payday: 13 Feb 2026 (fixed reference)
   PERIOD_DAYS:    28,
   PERIODS_PER_YR: 13,
   // Contractual — CEA grade, Marylebone
+  // Grade — CEA only for now. CES and Dispatch planned; do not add yet.
+  GRADE:          'CEA',
   CONTRACTED_HRS: 140,                   // hours per 28-day period
   LONDON_ALLOW:   276.16,               // London Allowance per period (£3,590.08/yr)
   FIRST_OFFSET:   -11,   // P37 — first period of 2025/26 (~11 Apr 2025)
