@@ -166,7 +166,7 @@
     }
     .period-meta { display: flex; justify-content: space-between; align-items: center; width: 100%; }
     .period-meta-text { font-size: var(--type-small); color: var(--text-faint); }
-    .period-badge { font-size: var(--type-micro); font-weight: 800; background: var(--accent-gold); color: var(--primary-blue); padding: 3px 10px; border-radius: 50px; }
+    .period-badge { font-size: var(--type-micro); font-weight: 800; background: var(--green-light); color: var(--green); padding: 3px 10px; border-radius: 50px; }
     .grade-row { display: flex; justify-content: space-between; align-items: center; width: 100%; }
     .grade-label { font-size: var(--type-small); color: var(--text-light); font-weight: 600; }
     .grade-badge { font-size: var(--type-micro); font-weight: 800; background: var(--primary-blue); color: white; padding: 3px 10px; border-radius: 50px; letter-spacing: 0.3px; }
@@ -323,12 +323,12 @@
     }
     .stepper button {
       width: 40px; height: 40px; border: none;
-      background: var(--accent-gold); color: var(--primary-blue);
+      background: var(--green-light); color: var(--green);
       font-size: 20px; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
       touch-action: manipulation; transition: background-color 0.15s; flex-shrink: 0;
     }
-    .stepper button:active { background: var(--accent-gold-dark); }
+    .stepper button:active { background: var(--green); color: white; }
     .stepper-val {
       min-width: 38px; text-align: center;
       font-size: var(--type-medium); font-weight: 700; color: var(--primary-blue);
@@ -483,10 +483,6 @@
     .lightbox-app-name {
       color: white; font-size: 22px; font-weight: 700; letter-spacing: -0.3px;
     }
-    .lightbox-subtitle {
-      color: rgba(255,255,255,0.5); font-size: 13px;
-      font-weight: 500; margin-bottom: 4px;
-    }
     .lightbox-version {
       color: rgba(255,255,255,0.42); font-size: var(--type-small);
       font-weight: 500; letter-spacing: 0.3px;
@@ -499,9 +495,13 @@
       color: var(--accent-gold); background: rgba(245,200,0,0.12);
     }
     .lightbox-status.checking { color: rgba(255,255,255,0.38); }
+    .lightbox-privacy {
+      margin-top: 16px; font-size: 11px; line-height: 1.5;
+      color: rgba(255,255,255,0.38); text-align: center;
+    }
     .lightbox-update-btn {
       margin-top: 8px; padding: 10px 24px;
-      background: var(--accent-gold); color: var(--primary-blue); border: none;
+      background: var(--green-light); color: var(--green); border: none;
       border-radius: 50px; font-family: inherit;
       font-size: var(--type-body); font-weight: 700; cursor: pointer;
       touch-action: manipulation;
@@ -598,7 +598,7 @@
   #updateBanner.visible { display: flex; }
   #updateBanner span { font-size: var(--type-small); }
   #updateBannerBtn {
-    background: var(--accent-gold); color: var(--primary-blue);
+    background: var(--green-light); color: var(--green);
     border: none; border-radius: var(--radius-sm);
     padding: 6px 14px; font-family: inherit;
     font-weight: 700; font-size: var(--type-small);
@@ -651,7 +651,7 @@
            class="app-icon" id="appIcon" loading="eager">
     <div>
       <h1>Marylebone Pay Calculator</h1>
-
+    <span class="hint privacy-hint">Pay data saved on this device only — not shared with anyone.</span>
     </div>
   </header>
 
@@ -967,12 +967,12 @@
                 box-shadow:0 0 0 3px rgba(255,255,255,0.18),0 12px 40px rgba(0,0,0,0.5);
                 margin-bottom:8px;">
     <div class="lightbox-app-name">Marylebone Pay Calculator</div>
-    <div class="lightbox-subtitle">Chiltern Railways</div>
     <div class="lightbox-version">Version <span id="lightboxVersion"></span></div>
     <div id="lightboxUpdateStatus" class="lightbox-status"></div>
     <button id="lightboxUpdateBtn" class="lightbox-update-btn" style="display:none">
       ↻ Update now
     </button>
+    <div class="lightbox-privacy">Your pay data is saved on this device only.<br>Nothing is sent to any server or shared with anyone.</div>
   </div>
 </div>
 
