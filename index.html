@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="color-scheme" content="light dark">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, user-scalable=yes, viewport-fit=cover">
+  <meta name="color-scheme" content="light">
   <meta name="theme-color" content="#001e3c">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -55,7 +55,8 @@
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
       background: var(--primary-blue);
-      min-height: 100dvh; min-height: 100vh;
+      min-height: 100vh;
+      min-height: 100dvh;
       padding-top:    max(20px, env(safe-area-inset-top));
       padding-bottom: max(20px, env(safe-area-inset-bottom));
       padding-left:   max(20px, env(safe-area-inset-left));
@@ -529,6 +530,27 @@
       }
     }
 
+  /* ── UPDATE BANNER (shown when a new version is waiting) ── */
+  #updateBanner {
+    display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 9998;
+    background: var(--primary-blue); color: white;
+    padding: 10px 16px;
+    align-items: center; justify-content: space-between; gap: 12px;
+    box-shadow: var(--shadow-2);
+  }
+  #updateBanner.visible { display: flex; }
+  #updateBanner span { font-size: var(--type-small); }
+  #updateBannerBtn {
+    background: var(--accent-gold); color: var(--primary-blue);
+    border: none; border-radius: var(--radius-sm);
+    padding: 6px 14px; font-family: inherit;
+    font-weight: 700; font-size: var(--type-small);
+    cursor: pointer; touch-action: manipulation; flex-shrink: 0;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    #updateBannerBtn:hover { background: var(--accent-gold-dark); }
+  }
+
   /* ── UPDATE TOAST ── */
   #updateToast {
     position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
@@ -550,6 +572,12 @@
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 </head>
 <body>
+
+<!-- Update banner: shown when a new version is waiting. User taps "Refresh now" when ready. -->
+<div id="updateBanner" role="status" aria-live="polite">
+  <span>Update available</span>
+  <button id="updateBannerBtn">Refresh now</button>
+</div>
 
 <!-- Splash screen: covers the launch gap on iOS PWA cold start.
      Dismissed ~280ms after first render with a 0.4s fade. -->
@@ -884,7 +912,7 @@
 //     and the TAX / NI / SL threshold values below.
 //     P48 anchor (13 Feb 2026) stays fixed as the offset reference point.
 const CONFIG = {
-  APP_VERSION:    '0.73',
+  APP_VERSION:    '0.74',
   // Period arithmetic
   ANCHOR_DATE:    new Date(2026, 1, 13), // P48 payday: 13 Feb 2026 (fixed reference)
   PERIOD_DAYS:    28,
@@ -1447,29 +1475,40 @@ if (_splash) {
 
   function showUpToDate() {
     if (!statusEl) return;
-    statusEl.textContent = '✓ Up to date — updates apply automatically';
+    statusEl.textContent = pendingWorker ? 'Update ready — see banner above' : '✓ Up to date';
     statusEl.className   = 'lightbox-status up-to-date';
   }
   function checkUpdateStatus() {
     showUpToDate();
   }
 
-  // Auto-update: when a new SW is waiting or finishes installing, apply it immediately.
-  // The page will reload and show an "Updated to vX.XX" toast.
-  function applyUpdate(worker) {
-    worker.postMessage({ type: 'SKIP_WAITING' });
+  // Show the update banner when a new SW is waiting — user taps "Refresh now" when ready.
+  // We never auto-reload: the user may be mid-entry and we don't want to wipe their session.
+  let pendingWorker = null;
+  const banner    = document.getElementById('updateBanner');
+  const bannerBtn = document.getElementById('updateBannerBtn');
+
+  function showUpdateBanner(worker) {
+    pendingWorker = worker;
+    if (banner) banner.classList.add('visible');
+  }
+
+  if (bannerBtn) {
+    bannerBtn.addEventListener('click', () => {
+      if (pendingWorker) pendingWorker.postMessage({ type: 'SKIP_WAITING' });
+    });
   }
 
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.ready.then(reg => {
       swReg = reg;
-      if (reg.waiting) applyUpdate(reg.waiting);
+      if (reg.waiting) showUpdateBanner(reg.waiting);
       reg.addEventListener('updatefound', () => {
         const nw = reg.installing;
         if (!nw) return;
         nw.addEventListener('statechange', () => {
           if (nw.state === 'installed' && navigator.serviceWorker.controller) {
-            applyUpdate(nw);
+            showUpdateBanner(nw);
           }
         });
       });
