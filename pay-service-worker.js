@@ -1,5 +1,7 @@
-const CACHE_NAME = 'myb-pay-calc-v2';
-// ⚠️ Increment CACHE_NAME on each deployment to bust old caches
+// ⚠️ APP_VERSION must match index.html — the hook keeps these in sync automatically.
+// Changing this file on every release is what triggers the browser's SW update detection.
+const APP_VERSION = '0.73';
+const CACHE_NAME  = 'myb-pay-calc-' + APP_VERSION;
 
 const URLS_TO_CACHE = [
   './',
