@@ -667,7 +667,7 @@
   <!-- PERIOD SELECTOR -->
   <div class="controls">
     <div class="grade-row">
-      <span class="grade-label">Grade</span>
+      <span class="grade-label">📅 Pay Period</span>
       <span class="grade-badge" id="gradeBadge">CEA</span>
     </div>
     <select id="periodSelect" onchange="onPeriodChange()"></select>
@@ -688,7 +688,7 @@
   <!-- RESULT -->
   <div class="result-card">
     <div class="result-net">
-      <div class="net-label">Estimated Net Pay</div>
+      <div class="net-label">💷 Estimated Net Pay</div>
       <div class="net-amount" id="netDisplay">£–</div>
       <div class="net-period" id="netPeriod">Select a pay period above</div>
     </div>
@@ -705,7 +705,7 @@
   <!-- HOURS THIS PERIOD -->
   <div class="content-card">
     <div class="card-header">
-      <h2>Your Hours This Period</h2>
+      <h2>⏱️ Your Hours This Period</h2>
       <span class="hint">Enter your hours for the selected pay period</span>
     </div>
     <div class="card-body">
@@ -718,7 +718,7 @@
       <!-- Saturday -->
       <div class="hours-row">
         <div class="h-info">
-          <div class="h-title">Saturday Hours <span class="rate-badge badge-sat" id="badge-sat">1.25×  ·  £25.92/hr</span></div>
+          <div class="h-title">🗓️ Saturday Hours <span class="rate-badge badge-sat" id="badge-sat">1.25×  ·  £25.92/hr</span></div>
           <div class="h-sub">Any Saturday hours shown in your normal roster. Saturdays within your contracted week are paid at 1.25× your base rate.</div>
           <div class="val-warn" id="satWarn">⚠ Saturday hours cannot exceed 140</div>
         </div>
@@ -743,7 +743,7 @@
       <!-- Overtime -->
       <div class="hours-row">
         <div class="h-info">
-          <div class="h-title">Unrostered Overtime <span class="rate-badge badge-ot" id="badge-ot">1.25×  ·  £25.92/hr</span></div>
+          <div class="h-title">⏰ Unrostered Overtime <span class="rate-badge badge-ot" id="badge-ot">1.25×  ·  £25.92/hr</span></div>
           <div class="h-sub" id="overtimeSub">Extra hours you worked beyond your base roster (Mon–Sat), before the cut-off. You'll see these as "Overtime 1.25" on your payslip.</div>
         </div>
         <div>
@@ -764,7 +764,7 @@
       <!-- Rostered RDW -->
       <div class="hours-row">
         <div class="h-info">
-          <div class="h-title">Rostered Rest Day Working <span class="rate-badge badge-rdw" id="badge-rdw">1.25×  ·  £25.92/hr</span></div>
+          <div class="h-title">💼 Rostered Rest Day Working <span class="rate-badge badge-rdw" id="badge-rdw">1.25×  ·  £25.92/hr</span></div>
           <div class="h-sub" id="rdwSub">Hours rostered on a day that would normally be your rest day (Mon–Sat), before the cut-off. These appear as "RDW 1.25" on your payslip.</div>
         </div>
         <div>
@@ -785,7 +785,7 @@
       <!-- Sunday RDW -->
       <div class="hours-row">
         <div class="h-info">
-          <div class="h-title">Sunday Working <span class="rate-badge badge-sun" id="badge-sun">1.5×  ·  £31.11/hr</span></div>
+          <div class="h-title">☀️ Sunday Working <span class="rate-badge badge-sun" id="badge-sun">1.5×  ·  £31.11/hr</span></div>
           <div class="h-sub" id="sundaySub">Any hours worked on a Sunday, before the cut-off. Sundays are not part of your contracted week, so all Sunday hours are at 1.5×. These appear as "RDW Sun 1.5" on your payslip.</div>
         </div>
         <div>
@@ -806,7 +806,7 @@
       <!-- Boxing Day -->
       <div class="hours-row hidden" id="boxingRow">
         <div class="h-info">
-          <div class="h-title">Boxing Day Working <span class="rate-badge badge-box" id="badge-box">3×  ·  £62.22/hr</span></div>
+          <div class="h-title">🎁 Boxing Day Working <span class="rate-badge badge-box" id="badge-box">3×  ·  £62.22/hr</span></div>
           <div class="h-sub">Hours worked on 26 December. This overrides all other rates — even if it falls on a Sunday. Appears as "Bank Holiday Overtime 3.0" on your payslip.</div>
         </div>
         <div>
@@ -829,7 +829,7 @@
 
       <div class="hours-row">
         <div class="h-info">
-          <div class="h-title">Training Days <span class="rate-badge badge-peer">+2 hrs pay</span></div>
+          <div class="h-title">🎓 Training Days <span class="rate-badge badge-peer">+2 hrs pay</span></div>
           <div class="h-sub">Number of days you spent training a new or existing colleague this period. Each training day adds 2 hours of pay at your base rate (£20.74/hr). Shown as extra basic pay on your payslip.</div>
         </div>
         <div class="stepper">
@@ -845,7 +845,7 @@
   <!-- ── HOLIDAY PAY PREMIUM ESTIMATOR ── -->
   <div class="content-card">
     <div class="card-header">
-      <h2>Holiday Pay Premium Estimate</h2>
+      <h2>🏖️ Holiday Pay Premium Estimate</h2>
       <span class="hint">Your variable pay × 7.69% — paid each January</span>
     </div>
     <div class="card-body">
@@ -862,7 +862,7 @@
   <!-- ── PAY RISE BACK-PAY CALCULATOR ── -->
   <div class="content-card" id="backPayCard" style="display:none">
     <div class="card-header">
-      <h2>Pay Rise Back Pay</h2>
+      <h2>📈 Pay Rise Back Pay</h2>
       <span class="hint">Difference owed across backdated periods</span>
     </div>
     <div class="card-body">
@@ -903,7 +903,7 @@
   <!-- SETTINGS -->
   <div class="content-card">
     <div class="card-header">
-      <h2>Your Settings</h2>
+      <h2>⚙️ Your Settings</h2>
       <span class="hint">Your pay rate, tax code, and deduction details · <strong id="gradeLabel">CEA Grade</strong></span>
     </div>
     <div class="card-body">
@@ -1178,7 +1178,7 @@ function onPeriodChange() {
   // Show tax year in meta row
   const ty = getTaxYearForOffset(p.num - 48);
   document.getElementById('cutoffInfo').textContent =
-    `${fdShort(p.start)} – ${fdShort(p.payday)}  ·  Cut-off: ${cutStr}  ·  ${ty.label}`;
+    `${fdShort(p.start)} – ${fdShort(p.payday)}  💷  ·  ✂️ Cut-off: ${cutStr}  ·  ${ty.label}`;
 
   document.getElementById('periodBadge').textContent = `P${p.num}`;
   document.getElementById('netPeriod').textContent   = `Paid ${fd(p.payday)}`;
