@@ -726,6 +726,24 @@ These were open questions at the start of the project. Answers are recorded here
    `const APP_VERSION = 'X.XX'` — the hook keeps this in sync with `index.html` automatically
    **and stages the file** so it is always included in the next commit. The browser only detects
    a new SW when this file changes byte-for-byte.
+7. **Back-pay lump sum** — when a pay award is backdated, all back pay is paid as a **single
+   lump sum on one payslip** when the award is confirmed. The back-pay calculator shows the
+   total lump sum prominently (the headline figure), with a collapsible per-period breakdown
+   below. A tax caution is shown: the lump sum may push the employee into a higher tax band
+   in the period it is paid.
+8. **London Allowance per tax year** — `londonAllow` is a field on each `CONFIG.TAX_YEARS`
+   entry, not a single global constant. Both `calculate()` and `calcHPP()` resolve the correct
+   value for each period's tax year. Update the `londonAllow` value in `CONFIG.TAX_YEARS` when
+   a new pay award is confirmed.
+9. **Event handlers** — all interactive elements use `addEventListener` in the JS init block.
+   No inline `onclick`/`oninput`/`onchange` attributes in the HTML. Consistent with roster app.
+10. **Icons** — all `<img>` tags reference `icon-192.png` as a file path. No inline base64
+    image data. The icon files must exist in the same directory when deployed.
+11. **Colour conventions** — `--accent-gold` is for backgrounds and badges only (today
+    highlight, active states, pill badges). Never use it for large body text — use white on
+    navy backgrounds instead. Green (`--green`, `--green-light`) is reserved for the peer
+    training rate badge and success feedback only — not for interactive buttons or UI controls.
+    Interactive controls use navy (`--primary-blue`) or gold backgrounds.
 
 ## Open questions for Phase 2 (merge)
 
