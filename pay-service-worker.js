@@ -1,6 +1,6 @@
 // ⚠️ APP_VERSION must match index.html — the hook keeps these in sync automatically.
 // Changing this file on every release is what triggers the browser's SW update detection.
-const APP_VERSION = '0.96';
+const APP_VERSION = '0.97';
 const CACHE_NAME  = 'myb-pay-calc-' + APP_VERSION;
 
 const URLS_TO_CACHE = [
