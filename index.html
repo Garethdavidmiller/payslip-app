@@ -1057,7 +1057,7 @@
 //     and the TAX / NI / SL threshold values below.
 //     P48 anchor (13 Feb 2026) stays fixed as the offset reference point.
 const CONFIG = {
-  APP_VERSION:    '0.95',
+  APP_VERSION:    '0.96',
   // Period arithmetic
   ANCHOR_DATE:    new Date(2026, 1, 13), // P48 payday: 13 Feb 2026 (fixed reference)
   PERIOD_DAYS:    28,
@@ -1152,22 +1152,28 @@ function onHhMm(hId, mId, warnId) {
 }
 
 // ── PAY PERIODS ───────────────────────────────────────────────────────────────
+// Structure of each period:
+//   cutoff  = Saturday (last day shifts count; also the hours-submission deadline)
+//   start   = Sunday after the previous period's cutoff (first day shifts count)
+//   payday  = Friday 6 days after cutoff (the day Chiltern pay into your account)
 function getPeriods() {
   const out = [];
   for (let offset = CONFIG.FIRST_OFFSET; offset <= CONFIG.LAST_OFFSET; offset++) {
     const payday = new Date(CONFIG.ANCHOR_DATE);
     payday.setDate(payday.getDate() + offset * CONFIG.PERIOD_DAYS);
-    const start  = new Date(payday); start.setDate(start.getDate() - CONFIG.PERIOD_DAYS + 1);
     const cutoff = new Date(payday); cutoff.setDate(cutoff.getDate() - 6);
+    // start = day after previous cutoff = cutoff - 27 days (not payday - 27)
+    const start  = new Date(cutoff); start.setDate(start.getDate() - CONFIG.PERIOD_DAYS + 1);
     out.push({ payday, start, cutoff, num: 48 + offset });
   }
   return out;
 }
 
 function hasBoxingDay(p) {
-  for (let y = p.start.getFullYear(); y <= p.payday.getFullYear(); y++) {
+  // Check whether 26 Dec falls within the shift window (start → cutoff)
+  for (let y = p.start.getFullYear(); y <= p.cutoff.getFullYear(); y++) {
     const bd = new Date(y, 11, 26);
-    if (bd >= p.start && bd <= p.payday) return true;
+    if (bd >= p.start && bd <= p.cutoff) return true;
   }
   return false;
 }
@@ -1247,16 +1253,21 @@ function onPeriodChange() {
   document.getElementById('prevBtn').disabled = (idx <= 0);
   document.getElementById('nextBtn').disabled = (idx >= periods.length - 1);
 
-  // Meta row — two lines: date range (plain language) + deadline/tax year
+  // Meta row — two lines
+  // Row 1: the shift dates (start → cutoff, not start → payday)
+  // Row 2: payday + tax year (payday is already in the dropdown label, but useful as context)
   const ty = getTaxYearForOffset(p.num - 48);
   const startStr = p.start.toLocaleDateString('en-GB', {
     day: 'numeric', month: 'short', timeZone: 'Europe/London'
   });
-  const payLongStr = p.payday.toLocaleDateString('en-GB', {
+  const cutLongStr = p.cutoff.toLocaleDateString('en-GB', {
     day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/London'
   });
-  document.getElementById('pmRange').textContent   = `${startStr} – ${payLongStr}`;
-  document.getElementById('pmSub').textContent     = `✂️ Deadline: ${cutStr}  ·  Tax year ${ty.label}`;
+  const payStr = p.payday.toLocaleDateString('en-GB', {
+    day: 'numeric', month: 'short', timeZone: 'Europe/London'
+  });
+  document.getElementById('pmRange').textContent   = `${startStr} – ${cutLongStr}`;
+  document.getElementById('pmSub').textContent     = `💷 Paid: ${payStr}  ·  Tax year ${ty.label}`;
   document.getElementById('periodBadge').textContent = `P${p.num}`;
   document.getElementById('netPeriod').textContent   = `Paid ${fd(p.payday)}`;
 
