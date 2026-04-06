@@ -960,9 +960,17 @@
       </div>
       <!-- Total shown first — it's the headline figure (the lump sum on one payslip) -->
       <div class="hpp-result" id="backPayTotal" style="display:none">
-        <div class="hpp-label">💷 Lump sum on one payslip</div>
+        <div class="hpp-label" id="backPayTotalLabel">💷 Lump sum on one payslip</div>
         <div class="hpp-amount" id="backPayTotalAmt">£–</div>
         <div class="hpp-basis" id="backPayTotalBasis"></div>
+      </div>
+      <!-- Period selector — appears once total is calculated -->
+      <div class="field" id="backPayPeriodWrap" style="display:none;margin:0 0 12px">
+        <label>Paid in period</label>
+        <select id="backPayPeriod">
+          <option value="">— select when the lump sum will land —</option>
+        </select>
+        <div class="field-hint">Which payslip will carry the full lump sum? Select it to see a specific tax warning for that period.</div>
       </div>
       <div class="backpay-notice" id="backPayNotice" style="display:none">
         ⚠️ This lump sum is taxed in the period it is paid. If it pushes your income over a tax band threshold that month, you may receive less than the gross figure shown — check your payslip carefully.
@@ -1100,7 +1108,7 @@
 //     and the TAX / NI / SL threshold values below.
 //     P48 anchor (13 Feb 2026) stays fixed as the offset reference point.
 const CONFIG = {
-  APP_VERSION:    '0.99',
+  APP_VERSION:    '1.00',
   // Period arithmetic
   ANCHOR_DATE:    new Date(2026, 1, 13), // P48 payday: 13 Feb 2026 (fixed reference)
   PERIOD_DAYS:    28,
@@ -1280,6 +1288,31 @@ function buildPeriodSelect() {
 
   sel.value = defPNum;
   onPeriodChange();
+  buildBackPayPeriodSelect();
+}
+
+function buildBackPayPeriodSelect() {
+  const sel = document.getElementById('backPayPeriod');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— select when the lump sum will land —</option>';
+  const periods = getPeriods();
+  let currentGroup = null, currentTyLabel = null;
+  periods.forEach(p => {
+    const ty = getTaxYearForOffset(p.num - 48);
+    if (ty.label !== currentTyLabel) {
+      currentGroup = document.createElement('optgroup');
+      currentGroup.label = `Tax year ${ty.label}`;
+      sel.appendChild(currentGroup);
+      currentTyLabel = ty.label;
+    }
+    const o = document.createElement('option');
+    o.value = p.num;
+    const payStr = p.payday.toLocaleDateString('en-GB', {
+      day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/London'
+    });
+    o.textContent = `P${p.num} · Paid ${payStr}`;
+    currentGroup.appendChild(o);
+  });
 }
 
 function prevPeriod() {
@@ -1815,12 +1848,17 @@ function calcBackPay() {
   const hasRate   = oldRate   > 0 && newRate   > 0 && newRate   > oldRate;
   const hasLondon = oldLondon > 0 && newLondon > 0 && newLondon > oldLondon;
 
+  const labelEl    = document.getElementById('backPayTotalLabel');
+  const periodWrap = document.getElementById('backPayPeriodWrap');
+  const bpSel      = document.getElementById('backPayPeriod');
+
   if (!hasRate && !hasLondon) {
     rowsEl.innerHTML = '';
     rowsEl.classList.remove('open');
-    totalEl.style.display = 'none';
-    noticeEl.style.display = 'none';
+    totalEl.style.display    = 'none';
+    noticeEl.style.display   = 'none';
     breakdownBtn.style.display = 'none';
+    if (periodWrap) periodWrap.style.display = 'none';
     return;
   }
 
@@ -1869,22 +1907,45 @@ function calcBackPay() {
   });
 
   if (grandTotal > 0) {
+    // Resolve the selected "paid in" period (if any)
+    const bpPNum = bpSel ? +bpSel.value : 0;
+    const bpP    = bpPNum ? getPeriods().find(x => x.num === bpPNum) : null;
+
     // Total is the headline — shown first
     totalEl.style.display = 'block';
     totalAmtEl.textContent = fmt(grandTotal);
+    if (labelEl) {
+      labelEl.textContent = bpP
+        ? `💷 Lump sum · Paid ${fdShort(bpP.payday)}`
+        : '💷 Lump sum on one payslip';
+    }
     const parts = [];
     if (hasRate)   parts.push(`rate ${fmt(oldRate)} → ${fmt(newRate)}`);
     if (hasLondon) parts.push(`London Allow ${fmt(oldLondon)} → ${fmt(newLondon)}`);
     totalBasEl.textContent = `${pCount} period${pCount > 1 ? 's' : ''} backdated · ${parts.join(' · ')}`;
-    // Tax caution
+
+    // Show period selector
+    if (periodWrap) periodWrap.style.display = 'block';
+
+    // Tax caution — specific if a period is selected, generic otherwise
     noticeEl.style.display = 'block';
+    if (bpP) {
+      const payLong = bpP.payday.toLocaleDateString('en-GB', {
+        day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/London'
+      });
+      noticeEl.innerHTML = `⚠️ This lump sum will appear on your <strong>P${bpP.num} payslip (paid ${payLong})</strong>. It is taxed in full in that period — if it pushes your income over a tax band threshold, you may receive less than the gross figure shown.`;
+    } else {
+      noticeEl.textContent = '⚠️ This lump sum is taxed in the period it is paid. Select a period above to see a specific warning. If it pushes your income over a tax band threshold that month, you may receive less than the gross figure shown.';
+    }
+
     // Per-period breakdown — collapsible, secondary
     rowsEl.innerHTML = rows;
     breakdownBtn.style.display = 'flex';
   } else {
-    totalEl.style.display = 'none';
-    noticeEl.style.display = 'none';
+    totalEl.style.display    = 'none';
+    noticeEl.style.display   = 'none';
     breakdownBtn.style.display = 'none';
+    if (periodWrap) periodWrap.style.display = 'none';
     rowsEl.innerHTML = '<p style="font-size:13px;color:var(--text-light);padding:8px 0">No saved periods found. Enter hours for each period first.</p>';
   }
 }
@@ -1943,9 +2004,10 @@ document.getElementById('peerPlus').addEventListener('click',  () => stepPeer(1)
   document.getElementById(id).addEventListener('input', calcBackPay);
 });
 
-// Back-pay toggle
+// Back-pay toggle + period selector
 document.getElementById('backPayToggle').addEventListener('click', toggleBackPay);
 document.getElementById('bpBreakdownBtn').addEventListener('click', toggleBpBreakdown);
+document.getElementById('backPayPeriod').addEventListener('change', calcBackPay);
 
 // Settings
 document.getElementById('hourlyRate').addEventListener('input',  () => { saveSettings(); calculate(); });
