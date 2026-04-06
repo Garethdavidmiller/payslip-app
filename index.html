@@ -786,7 +786,7 @@
       <!-- Bank Holiday Rostered -->
       <div class="hours-row">
         <div class="h-info">
-          <div class="h-title">🏖️ Bank Holiday Hours <span class="rate-badge badge-bh" id="badge-bh">+0.25×  ·  £5.19/hr</span></div>
+          <div class="h-title">🏖️ Bank Holiday Hours <span class="rate-badge badge-bh" id="badge-bh">1.25×  ·  £25.93/hr</span></div>
           <div class="h-sub">Rostered shifts that fall on a bank holiday (Easter, summer BH, etc.). Shows as "Bank Holiday Rostered 1.25" on your payslip.</div>
         </div>
         <div>
@@ -1034,12 +1034,33 @@
         <div id="pensionWarn" class="val-warn" style="display:none">⚠ Pension contribution exceeds gross pay — check the amount</div>
       </div>
 
+      <div class="field">
+        <label>Cumulative PAYE — Year to Date <span class="note">optional, improves tax accuracy</span></label>
+        <div style="display:flex;gap:8px;margin-bottom:6px">
+          <div style="flex:1">
+            <div style="font-size:var(--type-micro);font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Taxable Pay YTD</div>
+            <div class="pfx">
+              <span class="pfx-sym">£</span>
+              <input type="number" id="ytdPay" step="0.01" min="0" placeholder="0.00" inputmode="decimal">
+            </div>
+          </div>
+          <div style="flex:1">
+            <div style="font-size:var(--type-micro);font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Tax Paid YTD</div>
+            <div class="pfx">
+              <span class="pfx-sym">£</span>
+              <input type="number" id="ytdTax" step="0.01" min="0" placeholder="0.00" inputmode="decimal">
+            </div>
+          </div>
+        </div>
+        <div class="field-hint">From the Year-to-Date section of your last payslip — enter "Taxable Pay" and "Tax Paid". When filled in the app uses HMRC's cumulative method for a more accurate tax estimate. Leave blank to keep per-period estimates. Update each time you get a new payslip.</div>
+      </div>
+
     </div>
   </div>
 
   <!-- DISCLAIMER -->
   <div class="disclaimer">
-    ⚠️ Estimate only — not financial or tax advice. Tax is calculated per period using your annual personal allowance divided by 13. Actual PAYE is cumulative and may differ after overtime swings, mid-year code changes, or corrected codes. London Allowance is included automatically.
+    ⚠️ Estimate only — not financial or tax advice. Tax uses per-period estimates (÷13) unless you enter YTD figures from your payslip, which switches to HMRC's cumulative method. Actual PAYE may still differ due to employer rounding or corrections across prior periods. London Allowance is included automatically.
   </div>
 
   <div id="updateToast" role="status" aria-live="polite"></div>
@@ -1079,7 +1100,7 @@
 //     and the TAX / NI / SL threshold values below.
 //     P48 anchor (13 Feb 2026) stays fixed as the offset reference point.
 const CONFIG = {
-  APP_VERSION:    '0.98',
+  APP_VERSION:    '0.99',
   // Period arithmetic
   ANCHOR_DATE:    new Date(2026, 1, 13), // P48 payday: 13 Feb 2026 (fixed reference)
   PERIOD_DAYS:    28,
@@ -1142,7 +1163,7 @@ const SL_BY_YEAR = {
 const HPP_FRACTION = 4 / 52;
 
 // ── STORAGE KEYS ──────────────────────────────────────────────────────────────
-const SK = { rate:'cea_rate', code:'cea_code', sl:'cea_sl', pension:'cea_pension', setup:'cea_setup_done' };
+const SK = { rate:'cea_rate', code:'cea_code', sl:'cea_sl', pension:'cea_pension', setup:'cea_setup_done', ytdPay:'cea_ytd_pay', ytdTax:'cea_ytd_tax' };
 function periodKey(pNum) { return `cea_p${pNum}`; }
 
 // Period data schema — all fields that get saved per period
@@ -1447,6 +1468,8 @@ function saveSettings() {
   localStorage.setItem(SK.code,    document.getElementById('taxCode').value);
   localStorage.setItem(SK.sl,      document.getElementById('studentLoan').value);
   localStorage.setItem(SK.pension, document.getElementById('pensionAmt').value);
+  localStorage.setItem(SK.ytdPay,  document.getElementById('ytdPay').value);
+  localStorage.setItem(SK.ytdTax,  document.getElementById('ytdTax').value);
   localStorage.setItem(SK.setup,   '1'); // mark setup as done
   document.getElementById('setupBanner').classList.add('hidden');
   calculate();
@@ -1457,11 +1480,15 @@ function loadSettings() {
   const code    = localStorage.getItem(SK.code);
   const sl      = localStorage.getItem(SK.sl);
   const pension = localStorage.getItem(SK.pension);
+  const ytdPay  = localStorage.getItem(SK.ytdPay);
+  const ytdTax  = localStorage.getItem(SK.ytdTax);
   const done    = localStorage.getItem(SK.setup);
   if (rate)    document.getElementById('hourlyRate').value  = rate;
   if (code)    document.getElementById('taxCode').value     = code.toUpperCase();
   if (sl)      document.getElementById('studentLoan').value = sl;
   if (pension) document.getElementById('pensionAmt').value  = pension;
+  if (ytdPay)  document.getElementById('ytdPay').value      = ytdPay;
+  if (ytdTax)  document.getElementById('ytdTax').value      = ytdTax;
   // Hide setup banner if settings already configured
   if (done) document.getElementById('setupBanner').classList.add('hidden');
 }
@@ -1470,7 +1497,7 @@ function loadSettings() {
 function updateBadges(rate) {
   const f = (r, mult) => `${mult}×  ·  £${(rate * r).toFixed(2)}/hr`;
   document.getElementById('badge-sat').textContent = f(1.25, '1.25');
-  document.getElementById('badge-bh').textContent  = `+0.25×  ·  £${(rate * 0.25).toFixed(2)}/hr extra`;
+  document.getElementById('badge-bh').textContent  = f(1.25, '1.25');
   document.getElementById('badge-ot').textContent  = f(1.25, '1.25');
   document.getElementById('badge-rdw').textContent = f(1.25, '1.25');
   document.getElementById('badge-sun').textContent = f(1.50, '1.5');
@@ -1499,13 +1526,15 @@ function calculate() {
   const bHrs   = hhmmDec('boxH', 'boxM');
 
   const satCapped  = Math.min(satHrs, CONTR);
-  const normHrs    = CONTR - satCapped;
+  const normHrs    = CONTR - satCapped;     // non-Saturday contracted hours
+  const bhCapped   = Math.min(bhHrs, normHrs); // clamp to available non-Sat hours
+  const nonBhNorm  = normHrs - bhCapped;    // weekday non-BH contracted hours
 
-  const gBasicNorm = normHrs   * rate;
-  const gBasicSat  = satCapped * r125;
-  // Bank Holiday Rostered: contracted hours on a bank holiday.
-  // Basic pay already includes 1.0× for all 140h; this adds the extra 0.25× premium.
-  const gBankHol   = bhHrs     * rate * 0.25;
+  const gBasicNorm = nonBhNorm  * rate;   // weekday non-BH pay at 1.0×
+  const gBasicSat  = satCapped  * r125;   // Saturday contracted pay at 1.25×
+  // Bank Holiday Rostered: full 1.25× pay for contracted shifts on bank holidays.
+  // Matches payslip line "Bank Holiday Rostered 1.25" exactly.
+  const gBankHol   = bhCapped   * r125;
   const gOvertime  = oHrs      * r125;
   const gRdw       = rHrs      * r125;
   const gSunday    = sHrs      * r150;
@@ -1564,6 +1593,61 @@ function calculate() {
     else                                       tax = basicBand * TAX.r20 + highBand * TAX.r40 + (taxable - basicBand - highBand) * TAX.r45;
   }
 
+  // ── CUMULATIVE PAYE ───────────────────────────────────────────────────────────
+  // When the user provides YTD figures from their last payslip, the app switches
+  // to HMRC's cumulative method: calculate total tax owed on all income since 6 April,
+  // then subtract what's already been collected. This corrects for overtime swings,
+  // back pay, and mid-year code changes. W1/M1/X (non-cumulative) codes are excluded.
+  const ytdP = numVal('ytdPay');
+  const ytdT = numVal('ytdTax');
+  let usingCumulative = false;
+
+  if ((ytdP > 0 || ytdT > 0) && !isNonCum && _curP) {
+    const N = (_curP.num - 48) - _ty.first + 1; // HMRC 4-weekly period number (1–13)
+    const cumGross = ytdP + sacGross;
+
+    // Resolve per-period PA using the same code-matching logic above, then scale to N periods
+    let paPerPeriod = TAX.pa;
+    if (baseCode === '0T') {
+      paPerPeriod = 0;
+    } else {
+      const km = baseCode.match(/^[SC]?K(\d+)$/);
+      if (km) {
+        paPerPeriod = -(parseInt(km[1]) * 10 / P_YR);
+      } else {
+        const nm = baseCode.match(/^[SC]?(\d+)L$/);
+        if (nm) paPerPeriod = parseInt(nm[1]) * 10 / P_YR;
+      }
+    }
+    const cumPa       = paPerPeriod * N;
+    const cumBasicTop = TAX.b * N;
+    const cumHighTop  = TAX.h * N;
+
+    let cumTaxDue = 0;
+    if (baseCode === 'NT') {
+      cumTaxDue = 0;
+    } else if (baseCode === 'BR') {
+      cumTaxDue = cumGross * TAX.r20;
+    } else if (baseCode === 'D0') {
+      cumTaxDue = cumGross * TAX.r40;
+    } else if (baseCode === 'D1') {
+      cumTaxDue = cumGross * TAX.r45;
+    } else {
+      const cumTaxable  = Math.max(0, cumGross - cumPa);
+      const cumBasicBnd = Math.max(0, cumBasicTop - Math.max(0, cumPa));
+      const cumHighBnd  = Math.max(0, cumHighTop - cumBasicTop);
+      if (cumTaxable <= cumBasicBnd) {
+        cumTaxDue = cumTaxable * TAX.r20;
+      } else if (cumTaxable <= cumBasicBnd + cumHighBnd) {
+        cumTaxDue = cumBasicBnd * TAX.r20 + (cumTaxable - cumBasicBnd) * TAX.r40;
+      } else {
+        cumTaxDue = cumBasicBnd * TAX.r20 + cumHighBnd * TAX.r40 + (cumTaxable - cumBasicBnd - cumHighBnd) * TAX.r45;
+      }
+    }
+    tax = Math.max(0, cumTaxDue - ytdT);
+    usingCumulative = true;
+  }
+
   // NI (on sacGross)
   const ni = sacGross <= NI.pt ? 0
     : (Math.min(sacGross, NI.uel) - NI.pt) * NI.r8 + Math.max(0, sacGross - NI.uel) * NI.r2;
@@ -1571,7 +1655,7 @@ function calculate() {
   // Student Loan (on sacGross — HMRC applies SL on post-sacrifice earnings)
   // Thresholds are looked up per tax year (they rise each April).
   const plan    = document.getElementById('studentLoan').value;
-  const SL_PLAN = (SL.sl || {})[plan];
+  const SL_PLAN = (SL || {})[plan];
   const sl      = SL_PLAN ? Math.max(0, (sacGross - SL_PLAN.t) * SL_PLAN.r) : 0;
 
   const net = sacGross - tax - ni - sl; // same as gross - pension - tax - ni - sl
@@ -1585,7 +1669,7 @@ function calculate() {
     <div class="sum-row sum-gross"><span class="lbl">Gross pay</span><span class="val">${fmt(gross)}</span></div>
     ${pension > 0 ? `<div class="sum-row sum-ded"><span class="lbl">Pension — salary sacrifice (Smart RPS)</span><span class="val">−${fmt(pension)}</span></div>` : ''}
     ${pension > 0 ? `<div class="sum-row sum-gross"><span class="lbl">Taxable pay after sacrifice</span><span class="val">${fmt(sacGross)}</span></div>` : ''}
-    <div class="sum-row sum-ded"><span class="lbl">Income Tax</span><span class="val">−${fmt(tax)}</span></div>
+    <div class="sum-row sum-ded"><span class="lbl">Income Tax${usingCumulative ? ' <span style="font-size:10px;font-weight:400;color:var(--text-faint);margin-left:4px">cumulative</span>' : ''}</span><span class="val">−${fmt(tax)}</span></div>
     <div class="sum-row sum-ded"><span class="lbl">National Insurance</span><span class="val">−${fmt(ni)}</span></div>
     ${sl > 0 ? `<div class="sum-row sum-ded"><span class="lbl">Student Loan</span><span class="val">−${fmt(sl)}</span></div>` : ''}
     <div class="sum-row sum-net"><span class="lbl">Estimated net pay</span><span class="val">${fmt(net)}</span></div>
@@ -1596,11 +1680,11 @@ function calculate() {
     return mm > 0 ? `${hh}h ${mm}m` : `${hh}h`;
   };
   let bd = '';
-  bd += `<div class="bd-row"><span class="b-lbl">Basic pay — Mon–Fri (${fh(normHrs)} × ${fmt(rate)})</span><span class="b-val">${fmt(gBasicNorm)}</span></div>`;
+  bd += `<div class="bd-row"><span class="b-lbl">Basic pay — Mon–Fri (${fh(nonBhNorm)} × ${fmt(rate)})</span><span class="b-val">${fmt(gBasicNorm)}</span></div>`;
   if (satCapped > 0)
     bd += `<div class="bd-row"><span class="b-lbl">Basic pay — Saturday (${fh(satCapped)} × ${fmt(r125)})</span><span class="b-val">${fmt(gBasicSat)}</span></div>`;
-  if (bhHrs > 0)
-    bd += `<div class="bd-row"><span class="b-lbl">Bank Holiday premium (${fh(bhHrs)} × +${fmt(rate * 0.25)})</span><span class="b-val">${fmt(gBankHol)}</span></div>`;
+  if (bhCapped > 0)
+    bd += `<div class="bd-row"><span class="b-lbl">Bank Holiday Rostered (${fh(bhCapped)} × ${fmt(r125)})</span><span class="b-val">${fmt(gBankHol)}</span></div>`;
   if (oHrs > 0)
     bd += `<div class="bd-row"><span class="b-lbl">Unrostered Overtime (${fh(oHrs)} × ${fmt(r125)})</span><span class="b-val">${fmt(gOvertime)}</span></div>`;
   if (rHrs > 0)
@@ -1612,6 +1696,8 @@ function calculate() {
   if (peer > 0)
     bd += `<div class="bd-row"><span class="b-lbl">Training Days (${peer} day${peer>1?'s':''} × 2h × ${fmt(rate)})</span><span class="b-val">${fmt(gPeer)}</span></div>`;
   bd += `<div class="bd-row"><span class="b-lbl">London Allowance</span><span class="b-val">${fmt(LONDON)}</span></div>`;
+  if (usingCumulative)
+    bd += `<div class="bd-row"><span class="b-lbl" style="font-style:italic;color:var(--text-faint)">Tax estimated using HMRC's cumulative method — YTD figures from your last payslip</span><span class="b-val"></span></div>`;
   document.getElementById('bdBody').innerHTML = bd;
 
   calcHPP();
@@ -1753,6 +1839,7 @@ function calcBackPay() {
       if (isDataEmpty(d)) return;
 
       const satHrs = (d.satH || 0) + (d.satM || 0) / 60;
+      const bhHrs  = (d.bhH  || 0) + (d.bhM  || 0) / 60;
       const otHrs  = (d.otH  || 0) + (d.otM  || 0) / 60;
       const rdwHrs = (d.rdwH || 0) + (d.rdwM || 0) / 60;
       const sunHrs = (d.sunH || 0) + (d.sunM || 0) / 60;
@@ -1761,6 +1848,7 @@ function calcBackPay() {
       const ratePay =
         CONTR   * rateDiff        +
         satHrs  * rateDiff * 0.25 +
+        bhHrs   * rateDiff * 0.25 +
         otHrs   * rateDiff * 1.25 +
         rdwHrs  * rateDiff * 1.25 +
         sunHrs  * rateDiff * 1.50 +
@@ -1864,6 +1952,8 @@ document.getElementById('hourlyRate').addEventListener('input',  () => { saveSet
 document.getElementById('taxCode').addEventListener('input',     () => { saveSettings(); calculate(); });
 document.getElementById('studentLoan').addEventListener('change',() => { saveSettings(); calculate(); });
 document.getElementById('pensionAmt').addEventListener('input',  () => { saveSettings(); calculate(); });
+document.getElementById('ytdPay').addEventListener('input',      () => { saveSettings(); calculate(); });
+document.getElementById('ytdTax').addEventListener('input',      () => { saveSettings(); calculate(); });
 
 // Dismiss splash after first render
 const _splash = document.getElementById('splash');
