@@ -175,9 +175,11 @@
     @media (hover: hover) and (pointer: fine) {
       .nav-pill:hover:not(:disabled) { background: var(--primary-blue-dark); }
     }
-    .period-meta { display: flex; justify-content: space-between; align-items: baseline; width: 100%; gap: 6px; flex-wrap: wrap; }
-    .period-meta-text { font-size: var(--type-small); color: var(--text-faint); flex: 1; min-width: 0; }
-    .period-badge { font-size: var(--type-micro); font-weight: 800; background: var(--accent-gold); color: var(--primary-blue); padding: 3px 10px; border-radius: 50px; }
+    .period-meta   { display: flex; flex-direction: column; gap: 3px; width: 100%; }
+    .pm-range      { font-size: 13px; font-weight: 600; color: var(--text-dark); }
+    .pm-sub        { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+    .pm-sub-text   { font-size: var(--type-small); color: var(--text-mid); flex: 1; min-width: 0; }
+    .period-badge { font-size: var(--type-micro); font-weight: 800; background: var(--accent-gold); color: var(--primary-blue); padding: 3px 10px; border-radius: 50px; white-space: nowrap; }
     .grade-row { display: flex; justify-content: space-between; align-items: center; width: 100%; }
     .grade-label { font-size: var(--type-small); color: var(--text-light); font-weight: 600; }
     .grade-badge { font-size: var(--type-micro); font-weight: 800; background: var(--primary-blue); color: white; padding: 3px 10px; border-radius: 50px; letter-spacing: 0.3px; }
@@ -718,8 +720,11 @@
       <button class="nav-pill" id="nextBtn">Next →</button>
     </div>
     <div class="period-meta">
-      <span class="period-meta-text" id="cutoffInfo"></span>
-      <span class="period-badge" id="periodBadge">–</span>
+      <div class="pm-range" id="pmRange">–</div>
+      <div class="pm-sub">
+        <span class="pm-sub-text" id="pmSub"></span>
+        <span class="period-badge" id="periodBadge">–</span>
+      </div>
     </div>
     <div class="save-row">
       <span class="save-status" id="saveStatus">No data saved for this period</span>
@@ -1052,7 +1057,7 @@
 //     and the TAX / NI / SL threshold values below.
 //     P48 anchor (13 Feb 2026) stays fixed as the offset reference point.
 const CONFIG = {
-  APP_VERSION:    '0.94',
+  APP_VERSION:    '0.95',
   // Period arithmetic
   ANCHOR_DATE:    new Date(2026, 1, 13), // P48 payday: 13 Feb 2026 (fixed reference)
   PERIOD_DAYS:    28,
@@ -1188,12 +1193,28 @@ function buildPeriodSelect() {
   let   defPNum = periods[0].num;
 
   sel.innerHTML = '';
+  let currentGroup    = null;
+  let currentTyLabel  = null;
+
   periods.forEach(p => {
+    // Start a new <optgroup> when the tax year changes
+    const ty = getTaxYearForOffset(p.num - 48);
+    if (ty.label !== currentTyLabel) {
+      currentGroup = document.createElement('optgroup');
+      currentGroup.label = `Tax year ${ty.label}`;
+      sel.appendChild(currentGroup);
+      currentTyLabel = ty.label;
+    }
+
     const o = document.createElement('option');
     o.value = p.num;
-    o.textContent = `P${p.num}  ·  ${fdShort(p.payday)} '${String(p.payday.getFullYear()).slice(2)}`;
-    sel.appendChild(o);
+    // Plain-language label — "Paid 13 Feb 2026" — makes the date unambiguous
+    const payStr = p.payday.toLocaleDateString('en-GB', {
+      day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/London'
+    });
+    o.textContent = `Paid ${payStr}`;
     if (p.payday <= today) defPNum = p.num;
+    currentGroup.appendChild(o);
   });
 
   sel.value = defPNum;
@@ -1226,11 +1247,16 @@ function onPeriodChange() {
   document.getElementById('prevBtn').disabled = (idx <= 0);
   document.getElementById('nextBtn').disabled = (idx >= periods.length - 1);
 
-  // Show tax year in meta row
+  // Meta row — two lines: date range (plain language) + deadline/tax year
   const ty = getTaxYearForOffset(p.num - 48);
-  document.getElementById('cutoffInfo').textContent =
-    `${fdShort(p.start)} – ${fdShort(p.payday)}  ·  ✂️ Cut-off: ${cutStr}  ·  ${ty.label}`;
-
+  const startStr = p.start.toLocaleDateString('en-GB', {
+    day: 'numeric', month: 'short', timeZone: 'Europe/London'
+  });
+  const payLongStr = p.payday.toLocaleDateString('en-GB', {
+    day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/London'
+  });
+  document.getElementById('pmRange').textContent   = `${startStr} – ${payLongStr}`;
+  document.getElementById('pmSub').textContent     = `✂️ Deadline: ${cutStr}  ·  Tax year ${ty.label}`;
   document.getElementById('periodBadge').textContent = `P${p.num}`;
   document.getElementById('netPeriod').textContent   = `Paid ${fd(p.payday)}`;
 
