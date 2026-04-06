@@ -301,6 +301,7 @@
     .badge-sun  { background: var(--blue-light);   color: var(--blue-sky); border-color: var(--blue-sky); }
     .badge-box  { background: var(--boxing-day-bg); color: var(--boxing-day-text); border-color: var(--accent-gold); }
     .badge-peer { background: var(--green-light);  color: var(--green);    border-color: var(--green);    }
+    .badge-bh   { background: var(--al-light);     color: var(--al);       border-color: var(--al);       }
 
     /* HH:MM input (all hours rows) */
     .hhmm-wrap { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
@@ -782,6 +783,27 @@
         </div>
       </div>
 
+      <!-- Bank Holiday Rostered -->
+      <div class="hours-row">
+        <div class="h-info">
+          <div class="h-title">🏖️ Bank Holiday Hours <span class="rate-badge badge-bh" id="badge-bh">+0.25×  ·  £5.19/hr</span></div>
+          <div class="h-sub">Contracted shifts that fall on a bank holiday (e.g. Easter, summer bank holiday). Your basic pay already covers the 1.0× — this adds the extra 0.25× premium. Shows as "Bank Holiday Rostered 1.25" on your payslip.</div>
+        </div>
+        <div>
+          <div class="hhmm-wrap">
+            <div class="hhmm-field">
+              <input type="number" id="bhH" min="0" max="99" placeholder="0" inputmode="numeric">
+              <span class="hhmm-lbl">hrs</span>
+            </div>
+            <span class="hhmm-sep">:</span>
+            <div class="hhmm-field">
+              <input type="number" id="bhM" min="0" max="59" placeholder="00" inputmode="numeric">
+              <span class="hhmm-lbl">mins</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- ── REST DAY WORKING ── -->
       <div class="sec-hd">Overtime &amp; Rest Day Working</div>
 
@@ -1057,7 +1079,7 @@
 //     and the TAX / NI / SL threshold values below.
 //     P48 anchor (13 Feb 2026) stays fixed as the offset reference point.
 const CONFIG = {
-  APP_VERSION:    '0.95',
+  APP_VERSION:    '0.97',
   // Period arithmetic
   ANCHOR_DATE:    new Date(2026, 1, 13), // P48 payday: 13 Feb 2026 (fixed reference)
   PERIOD_DAYS:    28,
@@ -1097,12 +1119,23 @@ const NI_BY_YEAR = {
   '2025/26': { pt: 12570/P_YR, uel: 50270/P_YR, r8:0.08, r2:0.02 },
   '2026/27': { pt: 12570/P_YR, uel: 50270/P_YR, r8:0.08, r2:0.02 }, // confirmed unchanged
 };
-const SL_PLANS = {
-  plan1:   { t: 24990/P_YR, r: 0.09 },
-  plan2:   { t: 27295/P_YR, r: 0.09 },
-  plan4:   { t: 31395/P_YR, r: 0.09 },
-  plan5:   { t: 25000/P_YR, r: 0.09 },
-  postgrad:{ t: 21000/P_YR, r: 0.06 },
+// Student loan thresholds by tax year — HMRC publishes these each April.
+// ⚠️ Review after each Autumn Budget and update next tax year's values.
+const SL_BY_YEAR = {
+  '2025/26': {
+    plan1:   { t: 24990/P_YR, r: 0.09 },
+    plan2:   { t: 27295/P_YR, r: 0.09 },
+    plan4:   { t: 31395/P_YR, r: 0.09 }, // Scotland
+    plan5:   { t: 25000/P_YR, r: 0.09 },
+    postgrad:{ t: 21000/P_YR, r: 0.06 },
+  },
+  '2026/27': {
+    plan1:   { t: 26065/P_YR, r: 0.09 }, // confirmed HMRC
+    plan2:   { t: 28470/P_YR, r: 0.09 }, // confirmed HMRC
+    plan4:   { t: 32745/P_YR, r: 0.09 }, // confirmed HMRC (Scotland)
+    plan5:   { t: 25000/P_YR, r: 0.09 }, // unchanged
+    postgrad:{ t: 21000/P_YR, r: 0.06 }, // unchanged
+  },
 };
 
 // HPP: (Gross − Basic) × 4/52 — confirmed by Marie Firby, Chiltern payroll
@@ -1114,7 +1147,7 @@ function periodKey(pNum) { return `cea_p${pNum}`; }
 
 // Period data schema — all fields that get saved per period
 function emptyPeriodData() {
-  return { satH:0, satM:0, otH:0, otM:0, rdwH:0, rdwM:0, sunH:0, sunM:0, boxH:0, boxM:0, peer:0 };
+  return { satH:0, satM:0, bhH:0, bhM:0, otH:0, otM:0, rdwH:0, rdwM:0, sunH:0, sunM:0, boxH:0, boxM:0, peer:0 };
 }
 
 // ── DATE HELPERS ──────────────────────────────────────────────────────────────
@@ -1152,22 +1185,28 @@ function onHhMm(hId, mId, warnId) {
 }
 
 // ── PAY PERIODS ───────────────────────────────────────────────────────────────
+// Structure of each period:
+//   cutoff  = Saturday (last day shifts count; also the hours-submission deadline)
+//   start   = Sunday after the previous period's cutoff (first day shifts count)
+//   payday  = Friday 6 days after cutoff (the day Chiltern pay into your account)
 function getPeriods() {
   const out = [];
   for (let offset = CONFIG.FIRST_OFFSET; offset <= CONFIG.LAST_OFFSET; offset++) {
     const payday = new Date(CONFIG.ANCHOR_DATE);
     payday.setDate(payday.getDate() + offset * CONFIG.PERIOD_DAYS);
-    const start  = new Date(payday); start.setDate(start.getDate() - CONFIG.PERIOD_DAYS + 1);
     const cutoff = new Date(payday); cutoff.setDate(cutoff.getDate() - 6);
+    // start = day after previous cutoff = cutoff - 27 days (not payday - 27)
+    const start  = new Date(cutoff); start.setDate(start.getDate() - CONFIG.PERIOD_DAYS + 1);
     out.push({ payday, start, cutoff, num: 48 + offset });
   }
   return out;
 }
 
 function hasBoxingDay(p) {
-  for (let y = p.start.getFullYear(); y <= p.payday.getFullYear(); y++) {
+  // Check whether 26 Dec falls within the shift window (start → cutoff)
+  for (let y = p.start.getFullYear(); y <= p.cutoff.getFullYear(); y++) {
     const bd = new Date(y, 11, 26);
-    if (bd >= p.start && bd <= p.payday) return true;
+    if (bd >= p.start && bd <= p.cutoff) return true;
   }
   return false;
 }
@@ -1179,8 +1218,9 @@ function getTaxYearForOffset(offset) {
 function getThresholds(yearLabel) {
   const ty = CONFIG.TAX_YEARS.find(t => t.label === yearLabel) || CONFIG.TAX_YEARS[0];
   return {
-    tax:         TAX_BY_YEAR[yearLabel] || TAX_BY_YEAR['2025/26'],
-    ni:          NI_BY_YEAR[yearLabel]  || NI_BY_YEAR['2025/26'],
+    tax:         TAX_BY_YEAR[yearLabel]  || TAX_BY_YEAR['2025/26'],
+    ni:          NI_BY_YEAR[yearLabel]   || NI_BY_YEAR['2025/26'],
+    sl:          SL_BY_YEAR[yearLabel]   || SL_BY_YEAR['2025/26'],
     londonAllow: ty.londonAllow,
   };
 }
@@ -1247,16 +1287,21 @@ function onPeriodChange() {
   document.getElementById('prevBtn').disabled = (idx <= 0);
   document.getElementById('nextBtn').disabled = (idx >= periods.length - 1);
 
-  // Meta row — two lines: date range (plain language) + deadline/tax year
+  // Meta row — two lines
+  // Row 1: the shift dates (start → cutoff, not start → payday)
+  // Row 2: payday + tax year (payday is already in the dropdown label, but useful as context)
   const ty = getTaxYearForOffset(p.num - 48);
   const startStr = p.start.toLocaleDateString('en-GB', {
     day: 'numeric', month: 'short', timeZone: 'Europe/London'
   });
-  const payLongStr = p.payday.toLocaleDateString('en-GB', {
+  const cutLongStr = p.cutoff.toLocaleDateString('en-GB', {
     day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/London'
   });
-  document.getElementById('pmRange').textContent   = `${startStr} – ${payLongStr}`;
-  document.getElementById('pmSub').textContent     = `✂️ Deadline: ${cutStr}  ·  Tax year ${ty.label}`;
+  const payStr = p.payday.toLocaleDateString('en-GB', {
+    day: 'numeric', month: 'short', timeZone: 'Europe/London'
+  });
+  document.getElementById('pmRange').textContent   = `${startStr} – ${cutLongStr}`;
+  document.getElementById('pmSub').textContent     = `💷 Paid: ${payStr}  ·  Tax year ${ty.label}`;
   document.getElementById('periodBadge').textContent = `P${p.num}`;
   document.getElementById('netPeriod').textContent   = `Paid ${fd(p.payday)}`;
 
@@ -1300,6 +1345,7 @@ function currentPeriodNum() {
 function readFormData() {
   return {
     satH: intVal('satH'), satM: intVal('satM'),
+    bhH:  intVal('bhH'),  bhM:  intVal('bhM'),
     otH:  intVal('otH'),  otM:  intVal('otM'),
     rdwH: intVal('rdwH'), rdwM: intVal('rdwM'),
     sunH: intVal('sunH'), sunM: intVal('sunM'),
@@ -1311,6 +1357,7 @@ function readFormData() {
 function writeFormData(d) {
   const set = (id, v) => { document.getElementById(id).value = v || ''; };
   set('satH', d.satH || ''); set('satM', d.satM || '');
+  set('bhH',  d.bhH  || ''); set('bhM',  d.bhM  || '');
   set('otH',  d.otH  || ''); set('otM',  d.otM  || '');
   set('rdwH', d.rdwH || ''); set('rdwM', d.rdwM || '');
   set('sunH', d.sunH || ''); set('sunM', d.sunM || '');
@@ -1320,6 +1367,7 @@ function writeFormData(d) {
 
 function isDataEmpty(d) {
   return !d.satH && !d.satM &&
+         !d.bhH  && !d.bhM  &&
          !d.otH  && !d.otM  &&
          !d.rdwH && !d.rdwM &&
          !d.sunH && !d.sunM &&
@@ -1422,6 +1470,7 @@ function loadSettings() {
 function updateBadges(rate) {
   const f = (r, mult) => `${mult}×  ·  £${(rate * r).toFixed(2)}/hr`;
   document.getElementById('badge-sat').textContent = f(1.25, '1.25');
+  document.getElementById('badge-bh').textContent  = `+0.25×  ·  £${(rate * 0.25).toFixed(2)}/hr extra`;
   document.getElementById('badge-ot').textContent  = f(1.25, '1.25');
   document.getElementById('badge-rdw').textContent = f(1.25, '1.25');
   document.getElementById('badge-sun').textContent = f(1.50, '1.5');
@@ -1433,7 +1482,7 @@ function calculate() {
   const _pNum   = currentPeriodNum();
   const _curP   = getPeriods().find(x => x.num === _pNum);
   const _ty     = _curP ? getTaxYearForOffset(_curP.num - 48) : CONFIG.TAX_YEARS[0];
-  const { tax: TAX, ni: NI, londonAllow: LONDON } = getThresholds(_ty.label);
+  const { tax: TAX, ni: NI, sl: SL, londonAllow: LONDON } = getThresholds(_ty.label);
 
   const rate = numVal('hourlyRate') || 20.74;
   updateBadges(rate);
@@ -1443,6 +1492,7 @@ function calculate() {
   const peer = +document.getElementById('peerVal').textContent;
 
   const satHrs = hhmmDec('satH', 'satM');
+  const bhHrs  = hhmmDec('bhH',  'bhM');
   const oHrs   = hhmmDec('otH',  'otM');
   const rHrs   = hhmmDec('rdwH', 'rdwM');
   const sHrs   = hhmmDec('sunH', 'sunM');
@@ -1453,12 +1503,15 @@ function calculate() {
 
   const gBasicNorm = normHrs   * rate;
   const gBasicSat  = satCapped * r125;
+  // Bank Holiday Rostered: contracted hours on a bank holiday.
+  // Basic pay already includes 1.0× for all 140h; this adds the extra 0.25× premium.
+  const gBankHol   = bhHrs     * rate * 0.25;
   const gOvertime  = oHrs      * r125;
   const gRdw       = rHrs      * r125;
   const gSunday    = sHrs      * r150;
   const gBoxing    = bHrs      * r300;
   const gPeer      = peer * 2  * rate;
-  const gross      = gBasicNorm + gBasicSat + gOvertime + gRdw + gSunday + gBoxing + gPeer + LONDON;
+  const gross      = gBasicNorm + gBasicSat + gBankHol + gOvertime + gRdw + gSunday + gBoxing + gPeer + LONDON;
 
   // Pension — salary sacrifice: deducted from gross before tax and NI are calculated.
   // This reduces taxable pay and NI-able pay, saving the employee on both.
@@ -1516,8 +1569,10 @@ function calculate() {
     : (Math.min(sacGross, NI.uel) - NI.pt) * NI.r8 + Math.max(0, sacGross - NI.uel) * NI.r2;
 
   // Student Loan (on sacGross — HMRC applies SL on post-sacrifice earnings)
-  const plan = document.getElementById('studentLoan').value;
-  const sl   = SL_PLANS[plan] ? Math.max(0, (sacGross - SL_PLANS[plan].t) * SL_PLANS[plan].r) : 0;
+  // Thresholds are looked up per tax year (they rise each April).
+  const plan    = document.getElementById('studentLoan').value;
+  const SL_PLAN = (SL.sl || {})[plan];
+  const sl      = SL_PLAN ? Math.max(0, (sacGross - SL_PLAN.t) * SL_PLAN.r) : 0;
 
   const net = sacGross - tax - ni - sl; // same as gross - pension - tax - ni - sl
 
@@ -1544,6 +1599,8 @@ function calculate() {
   bd += `<div class="bd-row"><span class="b-lbl">Basic pay — Mon–Fri (${fh(normHrs)} × ${fmt(rate)})</span><span class="b-val">${fmt(gBasicNorm)}</span></div>`;
   if (satCapped > 0)
     bd += `<div class="bd-row"><span class="b-lbl">Basic pay — Saturday (${fh(satCapped)} × ${fmt(r125)})</span><span class="b-val">${fmt(gBasicSat)}</span></div>`;
+  if (bhHrs > 0)
+    bd += `<div class="bd-row"><span class="b-lbl">Bank Holiday premium (${fh(bhHrs)} × +${fmt(rate * 0.25)})</span><span class="b-val">${fmt(gBankHol)}</span></div>`;
   if (oHrs > 0)
     bd += `<div class="bd-row"><span class="b-lbl">Unrostered Overtime (${fh(oHrs)} × ${fmt(r125)})</span><span class="b-val">${fmt(gOvertime)}</span></div>`;
   if (rHrs > 0)
@@ -1591,20 +1648,23 @@ function calcHPP() {
 
       const r125 = rate * 1.25, r150 = rate * 1.50, r300 = rate * 3.00;
       const satHrs = (d.satH || 0) + (d.satM || 0) / 60;
+      const bhHrs  = (d.bhH  || 0) + (d.bhM  || 0) / 60;
       const otHrs  = (d.otH  || 0) + (d.otM  || 0) / 60;
       const rdwHrs = (d.rdwH || 0) + (d.rdwM || 0) / 60;
       const sunHrs = (d.sunH || 0) + (d.sunM || 0) / 60;
       const boxHrs = (d.boxH || 0) + (d.boxM || 0) / 60;
 
       // Variable pay = Gross minus Basic:
-      // Saturday uplift (0.25× extra on sat hours — Rostered Hours Premiums)
+      // Saturday uplift (0.25× extra on sat hours)
+      // Bank Holiday premium (0.25× extra on rostered BH hours)
       // Full OT, RDW, Sunday, Boxing pay
-      // London Allowance (London Shift Supplement — explicitly included)
-      // NOT peer training (extra basic, not listed)
+      // London Allowance (explicitly included per Chiltern payroll)
+      // NOT peer training (extra basic, not variable)
       const { londonAllow: pLondon } = getThresholds(getTaxYearForOffset(p.num - 48).label);
       const varPay =
         satHrs  * (rate * 0.25) +  // sat uplift above base rate
-        otHrs   * r125           +  // full OT pay (1.25× on top of base covered by basic)
+        bhHrs   * (rate * 0.25) +  // bank holiday premium above base rate
+        otHrs   * r125           +  // full OT pay
         rdwHrs  * r125           +  // full RDW pay
         sunHrs  * r150           +  // full Sunday pay
         boxHrs  * r300           +  // full Boxing Day pay
@@ -1779,10 +1839,10 @@ document.getElementById('satH').addEventListener('input', () => { onHhMm('satH',
 document.getElementById('satM').addEventListener('input', () => { clampMins('satM'); onHhMm('satH','satM','satWarn'); autosave(); });
 
 // Hours inputs — minutes clamp + autosave
-['otH','rdwH','sunH','boxH'].forEach(id => {
+['bhH','otH','rdwH','sunH','boxH'].forEach(id => {
   document.getElementById(id).addEventListener('input', autosave);
 });
-['otM','rdwM','sunM','boxM'].forEach(id => {
+['bhM','otM','rdwM','sunM','boxM'].forEach(id => {
   document.getElementById(id).addEventListener('input', () => { clampMins(id); autosave(); });
 });
 
