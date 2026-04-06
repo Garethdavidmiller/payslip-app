@@ -684,7 +684,7 @@
 <!-- Splash screen: covers the launch gap on iOS PWA cold start.
      Dismissed ~280ms after first render with a 0.4s fade. -->
 <div id="splash" role="presentation" aria-hidden="true">
-  <img id="splash-icon" src="icon-192.png" alt="" alt="" loading="eager">
+  <img id="splash-icon" src="icon-192.png" alt="" loading="eager">
   <div id="splash-title">Marylebone Pay Calculator</div>
 </div>
 <div class="app">
@@ -736,7 +736,7 @@
     </div>
     <div class="summary" id="summary"></div>
     <div class="payslip-note" id="payslipNote" style="display:none">
-      ℹ️ Your payslip gross figure is shown <em>after</em> salary sacrifice — it matches the "Taxable pay after sacrifice" line above (£<span id="pensionRef">154.77</span> pension already removed).
+      ℹ️ Your payslip gross figure is shown <em>after</em> salary sacrifice — pension of £<span id="pensionRef">–</span> deducted before tax and NI.
     </div>
     <button class="bd-btn" id="bdBtn">
       Full pay breakdown &nbsp;<span class="bd-arrow">▼</span>
@@ -765,12 +765,12 @@
         <div>
           <div class="hhmm-wrap">
             <div class="hhmm-field">
-              <input type="number" id="satH" min="0" max="140" placeholder="0">
+              <input type="number" id="satH" min="0" max="140" placeholder="0" inputmode="numeric">
               <span class="hhmm-lbl">hrs</span>
             </div>
             <span class="hhmm-sep">:</span>
             <div class="hhmm-field">
-              <input type="number" id="satM" min="0" max="59" placeholder="00">
+              <input type="number" id="satM" min="0" max="59" placeholder="00" inputmode="numeric">
               <span class="hhmm-lbl">mins</span>
             </div>
           </div>
@@ -789,12 +789,12 @@
         <div>
           <div class="hhmm-wrap">
             <div class="hhmm-field">
-              <input type="number" id="otH" min="0" max="99" placeholder="0">
+              <input type="number" id="otH" min="0" max="99" placeholder="0" inputmode="numeric">
               <span class="hhmm-lbl">hrs</span>
             </div>
             <span class="hhmm-sep">:</span>
             <div class="hhmm-field">
-              <input type="number" id="otM" min="0" max="59" placeholder="00">
+              <input type="number" id="otM" min="0" max="59" placeholder="00" inputmode="numeric">
               <span class="hhmm-lbl">mins</span>
             </div>
           </div>
@@ -810,12 +810,12 @@
         <div>
           <div class="hhmm-wrap">
             <div class="hhmm-field">
-              <input type="number" id="rdwH" min="0" max="99" placeholder="0">
+              <input type="number" id="rdwH" min="0" max="99" placeholder="0" inputmode="numeric">
               <span class="hhmm-lbl">hrs</span>
             </div>
             <span class="hhmm-sep">:</span>
             <div class="hhmm-field">
-              <input type="number" id="rdwM" min="0" max="59" placeholder="00">
+              <input type="number" id="rdwM" min="0" max="59" placeholder="00" inputmode="numeric">
               <span class="hhmm-lbl">mins</span>
             </div>
           </div>
@@ -831,12 +831,12 @@
         <div>
           <div class="hhmm-wrap">
             <div class="hhmm-field">
-              <input type="number" id="sunH" min="0" max="99" placeholder="0">
+              <input type="number" id="sunH" min="0" max="99" placeholder="0" inputmode="numeric">
               <span class="hhmm-lbl">hrs</span>
             </div>
             <span class="hhmm-sep">:</span>
             <div class="hhmm-field">
-              <input type="number" id="sunM" min="0" max="59" placeholder="00">
+              <input type="number" id="sunM" min="0" max="59" placeholder="00" inputmode="numeric">
               <span class="hhmm-lbl">mins</span>
             </div>
           </div>
@@ -852,12 +852,12 @@
         <div>
           <div class="hhmm-wrap">
             <div class="hhmm-field">
-              <input type="number" id="boxH" min="0" max="24" placeholder="0">
+              <input type="number" id="boxH" min="0" max="24" placeholder="0" inputmode="numeric">
               <span class="hhmm-lbl">hrs</span>
             </div>
             <span class="hhmm-sep">:</span>
             <div class="hhmm-field">
-              <input type="number" id="boxM" min="0" max="59" placeholder="00">
+              <input type="number" id="boxM" min="0" max="59" placeholder="00" inputmode="numeric">
               <span class="hhmm-lbl">mins</span>
             </div>
           </div>
@@ -911,24 +911,24 @@
       <div style="display:flex; gap:8px; margin-bottom:12px;">
         <div class="pfx" style="flex:1">
           <span class="pfx-sym">£</span>
-          <input type="number" id="oldRate" step="0.01" min="0" placeholder="Old rate">
+          <input type="number" id="oldRate" step="0.01" min="0" placeholder="Old rate" inputmode="decimal">
         </div>
         <div style="display:flex; align-items:center; font-size:18px; color:var(--text-light); padding-bottom:0">→</div>
         <div class="pfx" style="flex:1">
           <span class="pfx-sym">£</span>
-          <input type="number" id="newRateInput" step="0.01" min="0" placeholder="New rate">
+          <input type="number" id="newRateInput" step="0.01" min="0" placeholder="New rate" inputmode="decimal">
         </div>
       </div>
       <label style="font-size:13px;font-weight:600;color:var(--text-mid);display:block;margin-bottom:4px">London Allowance <span style="font-weight:400;color:var(--text-light)">(per period)</span></label>
       <div style="display:flex; gap:8px; margin-bottom:12px;">
         <div class="pfx" style="flex:1">
           <span class="pfx-sym">£</span>
-          <input type="number" id="oldLondon" step="0.01" min="0" placeholder="Old allowance">
+          <input type="number" id="oldLondon" step="0.01" min="0" placeholder="Old allowance" inputmode="decimal">
         </div>
         <div style="display:flex; align-items:center; font-size:18px; color:var(--text-light); padding-bottom:0">→</div>
         <div class="pfx" style="flex:1">
           <span class="pfx-sym">£</span>
-          <input type="number" id="newLondon" step="0.01" min="0" placeholder="New allowance">
+          <input type="number" id="newLondon" step="0.01" min="0" placeholder="New allowance" inputmode="decimal">
         </div>
       </div>
       <!-- Total shown first — it's the headline figure (the lump sum on one payslip) -->
@@ -960,7 +960,7 @@
         <label>Pay Rise Calculator</label>
         <button id="backPayToggle"
           style="width:100%; padding:9px 14px; border:2px solid var(--border-mid); border-radius:10px; font-family:inherit; font-size:15px; font-weight:600; color:var(--primary-blue); background:white; cursor:pointer; text-align:left; touch-action:manipulation;">
-          Show pay rise back-pay calculator ↑
+          Show pay rise back-pay calculator ↓
         </button>
         <div class="field-hint">Use this when a backdated pay rise has been agreed. It calculates the difference owed on every period you've already entered.</div>
       </div>
@@ -969,8 +969,8 @@
         <label>Your Hourly Rate</label>
         <div class="pfx">
           <span class="pfx-sym">£</span>
-          <input type="number" id="hourlyRate" step="0.01" min="0" value="20.74"
->
+          <input type="number" id="hourlyRate" step="0.01" min="0" value="20.74" inputmode="decimal">
+
         </div>
         <div class="field-hint">Your base hourly rate — check your latest payslip. Default is £20.74 (current CEA rate at Marylebone).</div>
       </div>
@@ -1000,10 +1000,11 @@
         <label>Pension — Salary Sacrifice <span class="note">Smart RPS CR Scheme</span></label>
         <div class="pfx">
           <span class="pfx-sym">£</span>
-          <input type="number" id="pensionAmt" step="0.01" min="0" value="154.77"
->
+          <input type="number" id="pensionAmt" step="0.01" min="0" value="154.77" inputmode="decimal">
+
         </div>
         <div class="field-hint">Your salary sacrifice pension contribution per period. This is deducted from your gross pay <strong>before</strong> tax and NI are calculated, so it reduces both. Check your payslip — shown as "Smart RPS CR Scheme".</div>
+        <div id="pensionWarn" class="val-warn" style="display:none">⚠ Pension contribution exceeds gross pay — check the amount</div>
       </div>
 
     </div>
@@ -1011,7 +1012,7 @@
 
   <!-- DISCLAIMER -->
   <div class="disclaimer">
-    ⚠️ Estimate only — not financial or tax advice. Figures may differ from your payslip due to rounding and cumulative tax adjustments. Tax is estimated on a standard cumulative basis. London Allowance is included automatically.
+    ⚠️ Estimate only — not financial or tax advice. Tax is calculated per period using your annual personal allowance divided by 13. Actual PAYE is cumulative and may differ after overtime swings, mid-year code changes, or corrected codes. London Allowance is included automatically.
   </div>
 
   <div id="updateToast" role="status" aria-live="polite"></div>
@@ -1051,7 +1052,7 @@
 //     and the TAX / NI / SL threshold values below.
 //     P48 anchor (13 Feb 2026) stays fixed as the offset reference point.
 const CONFIG = {
-  APP_VERSION:    '0.93',
+  APP_VERSION:    '0.94',
   // Period arithmetic
   ANCHOR_DATE:    new Date(2026, 1, 13), // P48 payday: 13 Feb 2026 (fixed reference)
   PERIOD_DAYS:    28,
@@ -1080,16 +1081,16 @@ const CONTR  = CONFIG.CONTRACTED_HRS;
 
 // ── TAX & NI THRESHOLDS BY TAX YEAR ──────────────────────────────────────────
 // All annual figures ÷ 13 to give 4-weekly amounts.
-// 2025/26: confirmed. 2026/27: estimated — PA and band thresholds frozen until
-// Apr 2028 under Autumn Budget 2024; NI rates confirmed unchanged for 2026/27.
+// Both years confirmed: personal allowance and band thresholds frozen at 2025/26 levels
+// until April 2028 (Autumn Budget 2024). NI rates and thresholds unchanged for 2026/27.
 // ⚠️  Review after each Autumn Budget and Spring Statement.
 const TAX_BY_YEAR = {
   '2025/26': { pa: 12570/P_YR, b: 50270/P_YR, h: 125140/P_YR, r20:0.20, r40:0.40, r45:0.45 },
-  '2026/27': { pa: 12570/P_YR, b: 50270/P_YR, h: 125140/P_YR, r20:0.20, r40:0.40, r45:0.45 }, // ⚠️ Estimated
+  '2026/27': { pa: 12570/P_YR, b: 50270/P_YR, h: 125140/P_YR, r20:0.20, r40:0.40, r45:0.45 }, // confirmed frozen
 };
 const NI_BY_YEAR = {
   '2025/26': { pt: 12570/P_YR, uel: 50270/P_YR, r8:0.08, r2:0.02 },
-  '2026/27': { pt: 12570/P_YR, uel: 50270/P_YR, r8:0.08, r2:0.02 }, // ⚠️ Estimated
+  '2026/27': { pt: 12570/P_YR, uel: 50270/P_YR, r8:0.08, r2:0.02 }, // confirmed unchanged
 };
 const SL_PLANS = {
   plan1:   { t: 24990/P_YR, r: 0.09 },
@@ -1436,19 +1437,53 @@ function calculate() {
   // Pension — salary sacrifice: deducted from gross before tax and NI are calculated.
   // This reduces taxable pay and NI-able pay, saving the employee on both.
   const pension    = numVal('pensionAmt');
-  const sacGross   = gross - pension; // pensionable pay after sacrifice
+  const pensionWarn = document.getElementById('pensionWarn');
+  if (pension > gross && pension > 0) {
+    if (pensionWarn) pensionWarn.style.display = 'block';
+  } else {
+    if (pensionWarn) pensionWarn.style.display = 'none';
+  }
+  const sacGross   = Math.max(0, gross - pension); // clamped — pension cannot exceed gross
 
   // Income Tax (on sacGross, not gross)
-  const rawCode   = (document.getElementById('taxCode').value || '1257L').toUpperCase().trim();
-  const cm        = rawCode.match(/^(\d+)L$/);
-  const pa        = cm ? (parseInt(cm[1]) * 10) / P_YR : TAX.pa;
-  const taxable   = Math.max(0, sacGross - pa);
-  const basicBand = Math.max(0, TAX.b - pa);
-  const highBand  = Math.max(0, TAX.h - TAX.b);
+  // Supports: nL, BR, D0, D1, NT, 0T, Kn, S/C prefix, W1/M1/X suffix
+  const rawCode = (document.getElementById('taxCode').value || '1257L').toUpperCase().replace(/\s+/g, '');
+  const isNonCum = /[WM]1$|X$/.test(rawCode); // W1/M1/X: non-cumulative basis (same calc, noted in disclaimer)
+  const baseCode = rawCode.replace(/[WM]1$|X$/, '');
   let tax = 0;
-  if      (taxable <= basicBand)            tax = taxable * TAX.r20;
-  else if (taxable <= basicBand + highBand) tax = basicBand * TAX.r20 + (taxable - basicBand) * TAX.r40;
-  else                                       tax = basicBand * TAX.r20 + highBand * TAX.r40 + (taxable - basicBand - highBand) * TAX.r45;
+  if (baseCode === 'NT') {
+    tax = 0; // No tax
+  } else if (baseCode === 'BR') {
+    tax = sacGross * TAX.r20; // All at basic rate — common for second jobs
+  } else if (baseCode === 'D0') {
+    tax = sacGross * TAX.r40; // All at higher rate
+  } else if (baseCode === 'D1') {
+    tax = sacGross * TAX.r45; // All at additional rate
+  } else {
+    // Banded calculation — resolve personal allowance first
+    let pa = TAX.pa; // default: standard allowance (e.g. 1257L → £12,570 ÷ 13)
+    if (baseCode === '0T') {
+      pa = 0; // Emergency / no allowance
+    } else {
+      // K codes: negative allowance (benefits in kind, overpaid tax credits, etc.)
+      const km = baseCode.match(/^[SC]?K(\d+)$/);
+      if (km) {
+        pa = -(parseInt(km[1]) * 10 / P_YR); // adds to taxable pay
+      } else {
+        // Standard nL codes (with optional S/C prefix for Scottish/Welsh taxpayers)
+        const nm = baseCode.match(/^[SC]?(\d+)L$/);
+        if (nm) pa = parseInt(nm[1]) * 10 / P_YR;
+        // else: unrecognised code — fall back to standard allowance
+      }
+    }
+    // Apply bands. For K codes pa is negative, so taxable = sacGross + |K_amount|
+    const taxable   = Math.max(0, sacGross - pa);
+    const basicBand = Math.max(0, TAX.b - Math.max(0, pa)); // band unchanged for K codes
+    const highBand  = Math.max(0, TAX.h - TAX.b);
+    if      (taxable <= basicBand)            tax = taxable * TAX.r20;
+    else if (taxable <= basicBand + highBand) tax = basicBand * TAX.r20 + (taxable - basicBand) * TAX.r40;
+    else                                       tax = basicBand * TAX.r20 + highBand * TAX.r40 + (taxable - basicBand - highBand) * TAX.r45;
+  }
 
   // NI (on sacGross)
   const ni = sacGross <= NI.pt ? 0
@@ -1462,7 +1497,7 @@ function calculate() {
 
   // UI
   document.getElementById('netDisplay').textContent = fmt(net);
-  document.getElementById('pensionRef').textContent = fmt(sacGross);
+  document.getElementById('pensionRef').textContent = pension.toFixed(2);
   document.getElementById('payslipNote').style.display = 'block';
 
   document.getElementById('summary').innerHTML = `
@@ -1568,8 +1603,7 @@ function calcHPP() {
   // Dynamic note — updates when tax year changes
   const noteEl = document.getElementById('hppNote');
   if (noteEl) {
-    const est = ty.label !== '2025/26' ? ' <em>Tax thresholds for 2026/27 are estimated pending final HMRC confirmation.</em>' : '';
-    noteEl.innerHTML = `<strong>Formula (confirmed by Chiltern payroll):</strong> Total variable pay (overtime + rest day hours + London Allowance) × 4/52 = 7.69%. Excludes basic pay, peer training, expenses and bonuses. This estimate covers the <strong>tax year ${ty.label}</strong> — Chiltern will pay it in <strong>January ${ty.hppPaidJan}</strong>. Pro-rated if you were not employed for the full year. The amount is not in dispute; only the 8–21 month lag in payment timing.${est}`;
+    noteEl.innerHTML = `<strong>Formula (confirmed by Chiltern payroll):</strong> Total variable pay (overtime + rest day hours + London Allowance) × 4/52 = 7.69%. Excludes basic pay, peer training, expenses and bonuses. This estimate covers the <strong>tax year ${ty.label}</strong> — Chiltern will pay it in <strong>January ${ty.hppPaidJan}</strong>. Pro-rated if you were not employed for the full year. The amount is not in dispute; only the 8–21 month lag in payment timing.`;
   }
 }
 
@@ -1580,7 +1614,7 @@ function toggleBackPay() {
   const showing = card.style.display !== 'none';
   card.style.display = showing ? 'none' : 'block';
   btn.textContent = showing
-    ? 'Show pay rise back-pay calculator ↑'
+    ? 'Show pay rise back-pay calculator ↓'
     : 'Hide pay rise back-pay calculator ↑';
   if (!showing) {
     // Pre-fill London Allowance with current period's value as a convenience
