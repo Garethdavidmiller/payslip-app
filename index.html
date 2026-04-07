@@ -1020,7 +1020,7 @@
         <select id="backPayFrom">
           <option value="">— all periods with saved data —</option>
         </select>
-        <div class="field-hint">The first period covered by the new rate — usually the April period. Earlier periods are excluded from the calculation.</div>
+        <div class="field-hint">Chiltern's pay anniversary is 1 April — pre-set to the April period of your current tax year. Change only if the award started at a different point.</div>
       </div>
 
       <div class="field">
@@ -1181,7 +1181,7 @@
 //     and the TAX / NI / SL threshold values below.
 //     P48 anchor (13 Feb 2026) stays fixed as the offset reference point.
 const CONFIG = {
-  APP_VERSION:    '1.02',
+  APP_VERSION:    '1.03',
   // Period arithmetic
   ANCHOR_DATE:    new Date(2026, 1, 13), // P48 payday: 13 Feb 2026 (fixed reference)
   PERIOD_DAYS:    28,
@@ -1923,6 +1923,12 @@ function toggleBackPay() {
     const la   = ty.londonAllow;
     const oldLondonEl = document.getElementById('oldLondon');
     if (!oldLondonEl.value) oldLondonEl.value = la.toFixed(2);
+    // Auto-select April period — Chiltern's pay anniversary is always 1 April
+    const fromSel = document.getElementById('backPayFrom');
+    if (fromSel && !fromSel.value) {
+      const aprilPNum = 48 + ty.first; // first period of the current tax year (April)
+      fromSel.value = aprilPNum;
+    }
     calcBackPay();
   }
 }
