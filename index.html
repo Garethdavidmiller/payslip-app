@@ -394,12 +394,12 @@
       background-repeat: no-repeat; background-position: right 10px center;
       background-size: 1em; padding-right: 30px; cursor: pointer;
     }
-    .pfx { position: relative; }
+    .pfx { position: relative; min-width: 0; }
     .pfx-sym {
       position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
       font-size: 15px; font-weight: 600; color: var(--text-mid); pointer-events: none;
     }
-    .pfx input { padding-left: 26px; }
+    .pfx input { padding-left: 26px; width: 100%; }
     .field-hint { font-size: var(--type-micro); color: var(--text-faint); margin-top: 5px; line-height: 1.4; }
 
     /* First-run banner */
@@ -1013,29 +1013,43 @@
       <span class="hint">Paid as a lump sum on one payslip</span>
     </div>
     <div class="card-body">
-      <p class="card-explainer">When a pay award is backdated, the full amount owed is paid as a single lump sum on one payslip. Enter your old and new rates to calculate the total.</p>
-      <label style="font-size:13px;font-weight:600;color:var(--text-mid);display:block;margin-bottom:4px">Hourly rate</label>
-      <div style="display:flex; gap:8px; margin-bottom:12px;">
-        <div class="pfx" style="flex:1">
-          <span class="pfx-sym">£</span>
-          <input type="number" id="oldRate" step="0.01" min="0" placeholder="Old rate" inputmode="decimal">
-        </div>
-        <div style="display:flex; align-items:center; font-size:18px; color:var(--text-light); padding-bottom:0">→</div>
-        <div class="pfx" style="flex:1">
-          <span class="pfx-sym">£</span>
-          <input type="number" id="newRateInput" step="0.01" min="0" placeholder="New rate" inputmode="decimal">
+      <p class="card-explainer">When a pay award is backdated, all the extra money owed is paid as a single lump sum. Select the first period covered by the new rate, enter the old and new values, then choose which payslip the lump sum lands on.</p>
+
+      <div class="field">
+        <label>Back pay from period</label>
+        <select id="backPayFrom">
+          <option value="">— all periods with saved data —</option>
+        </select>
+        <div class="field-hint">The first period covered by the new rate — usually the April period. Earlier periods are excluded from the calculation.</div>
+      </div>
+
+      <div class="field">
+        <label>Hourly rate</label>
+        <div style="display:flex; gap:8px;">
+          <div class="pfx" style="flex:1;min-width:0">
+            <span class="pfx-sym">£</span>
+            <input type="number" id="oldRate" step="0.01" min="0" placeholder="Old" inputmode="decimal">
+          </div>
+          <div style="display:flex; align-items:center; font-size:18px; color:var(--text-light); flex-shrink:0">→</div>
+          <div class="pfx" style="flex:1;min-width:0">
+            <span class="pfx-sym">£</span>
+            <input type="number" id="newRateInput" step="0.01" min="0" placeholder="New" inputmode="decimal">
+          </div>
         </div>
       </div>
-      <label style="font-size:13px;font-weight:600;color:var(--text-mid);display:block;margin-bottom:4px">London Allowance <span style="font-weight:400;color:var(--text-light)">(per period)</span></label>
-      <div style="display:flex; gap:8px; margin-bottom:12px;">
-        <div class="pfx" style="flex:1">
-          <span class="pfx-sym">£</span>
-          <input type="number" id="oldLondon" step="0.01" min="0" placeholder="Old allowance" inputmode="decimal">
-        </div>
-        <div style="display:flex; align-items:center; font-size:18px; color:var(--text-light); padding-bottom:0">→</div>
-        <div class="pfx" style="flex:1">
-          <span class="pfx-sym">£</span>
-          <input type="number" id="newLondon" step="0.01" min="0" placeholder="New allowance" inputmode="decimal">
+
+      <div class="field">
+        <label>London Allowance <span class="note">per period</span></label>
+        <div style="display:flex; gap:8px;">
+          <div class="pfx" style="flex:1;min-width:0">
+            <span class="pfx-sym">£</span>
+            <input type="number" id="oldLondon" step="0.01" min="0" placeholder="Old" inputmode="decimal">
+          </div>
+          <div style="display:flex; align-items:center; font-size:18px; color:var(--text-light); flex-shrink:0">→</div>
+          <div class="pfx" style="flex:1;min-width:0">
+            <span class="pfx-sym">£</span>
+            <input type="number" id="newLondon" step="0.01" min="0" placeholder="New" inputmode="decimal">
+          </div>
         </div>
       </div>
       <!-- Total shown first — it's the headline figure (the lump sum on one payslip) -->
@@ -1167,7 +1181,7 @@
 //     and the TAX / NI / SL threshold values below.
 //     P48 anchor (13 Feb 2026) stays fixed as the offset reference point.
 const CONFIG = {
-  APP_VERSION:    '1.01',
+  APP_VERSION:    '1.02',
   // Period arithmetic
   ANCHOR_DATE:    new Date(2026, 1, 13), // P48 payday: 13 Feb 2026 (fixed reference)
   PERIOD_DAYS:    28,
@@ -1351,27 +1365,36 @@ function buildPeriodSelect() {
 }
 
 function buildBackPayPeriodSelect() {
-  const sel = document.getElementById('backPayPeriod');
-  if (!sel) return;
-  sel.innerHTML = '<option value="">— select when the lump sum will land —</option>';
+  const sel     = document.getElementById('backPayPeriod');
+  const fromSel = document.getElementById('backPayFrom');
+  if (!sel && !fromSel) return;
+
   const periods = getPeriods();
-  let currentGroup = null, currentTyLabel = null;
-  periods.forEach(p => {
-    const ty = getTaxYearForOffset(p.num - 48);
-    if (ty.label !== currentTyLabel) {
-      currentGroup = document.createElement('optgroup');
-      currentGroup.label = `Tax year ${ty.label}`;
-      sel.appendChild(currentGroup);
-      currentTyLabel = ty.label;
-    }
-    const o = document.createElement('option');
-    o.value = p.num;
-    const payStr = p.payday.toLocaleDateString('en-GB', {
-      day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/London'
+
+  function populate(el, placeholder) {
+    if (!el) return;
+    el.innerHTML = `<option value="">${placeholder}</option>`;
+    let currentGroup = null, currentTyLabel = null;
+    periods.forEach(p => {
+      const ty = getTaxYearForOffset(p.num - 48);
+      if (ty.label !== currentTyLabel) {
+        currentGroup = document.createElement('optgroup');
+        currentGroup.label = `Tax year ${ty.label}`;
+        el.appendChild(currentGroup);
+        currentTyLabel = ty.label;
+      }
+      const o = document.createElement('option');
+      o.value = p.num;
+      const payStr = p.payday.toLocaleDateString('en-GB', {
+        day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/London'
+      });
+      o.textContent = `P${p.num} · Paid ${payStr}`;
+      currentGroup.appendChild(o);
     });
-    o.textContent = `P${p.num} · Paid ${payStr}`;
-    currentGroup.appendChild(o);
-  });
+  }
+
+  populate(sel,     '— select when the lump sum will land —');
+  populate(fromSel, '— all periods with saved data —');
 }
 
 function prevPeriod() {
@@ -1916,6 +1939,7 @@ function calcBackPay() {
   const noticeEl     = document.getElementById('backPayNotice');
   const breakdownBtn = document.getElementById('bpBreakdownBtn');
 
+  const fromPNum  = +(document.getElementById('backPayFrom')?.value || 0);
   const hasRate   = oldRate   > 0 && newRate   > 0 && newRate   > oldRate;
   const hasLondon = oldLondon > 0 && newLondon > 0 && newLondon > oldLondon;
 
@@ -1942,6 +1966,7 @@ function calcBackPay() {
 
   periods.forEach(p => {
     try {
+      if (fromPNum && p.num < fromPNum) return; // exclude periods before "from"
       const raw = localStorage.getItem(periodKey(p.num));
       if (!raw) return;
       const d = JSON.parse(raw);
@@ -2093,9 +2118,10 @@ document.getElementById('peerPlus').addEventListener('click',  () => stepPeer(1)
   document.getElementById(id).addEventListener('input', calcBackPay);
 });
 
-// Back-pay toggle + period selector
+// Back-pay toggle + period selectors
 document.getElementById('backPayToggle').addEventListener('click', toggleBackPay);
 document.getElementById('bpBreakdownBtn').addEventListener('click', toggleBpBreakdown);
+document.getElementById('backPayFrom').addEventListener('change', calcBackPay);
 document.getElementById('backPayPeriod').addEventListener('change', calcBackPay);
 
 // Settings
