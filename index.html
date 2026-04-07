@@ -1186,7 +1186,7 @@
 //     and the TAX / NI / SL threshold values below.
 //     P48 anchor (13 Feb 2026) stays fixed as the offset reference point.
 const CONFIG = {
-  APP_VERSION:    '1.04',
+  APP_VERSION:    '1.05',
   // Period arithmetic
   ANCHOR_DATE:    new Date(2026, 1, 13), // P48 payday: 13 Feb 2026 (fixed reference)
   PERIOD_DAYS:    28,
@@ -1204,8 +1204,8 @@ const CONFIG = {
   // 2026/27: P50 (paid ~10 Apr 2026) → P62 (paid ~11 Mar 2027)  offsets  +2 to +14
   // hppPaidJan = the January in which Chiltern pay that year's HPP lump sum
   TAX_YEARS: [
-    { label: '2025/26', first: -11, last:  1, hppPaidJan: 2027, londonAllow: 276.16 }, // £3,590.08/yr ÷ 13
-    { label: '2026/27', first:   2, last: 14, hppPaidJan: 2028, londonAllow: 276.16 }, // ⚠️ Update when pay award confirmed
+    { label: '2025/26', first: -11, last:  1, hppPaidJan: 2027, londonAllow: 276.16, londonAllowPre: 267.08 }, // pre-award £267.08 (P8–P28); new £276.16 from P36 (Oct award)
+    { label: '2026/27', first:   2, last: 14, hppPaidJan: 2028, londonAllow: 276.16 }, // ⚠️ Update londonAllowPre + londonAllow when pay award confirmed
   ],
 };
 
@@ -1921,13 +1921,14 @@ function toggleBackPay() {
     ? 'Show pay rise back-pay calculator ↓'
     : 'Hide pay rise back-pay calculator ↑';
   if (!showing) {
-    // Pre-fill London Allowance with current period's value as a convenience
+    // Pre-fill London Allowance fields — old = pre-award rate, new = current rate
     const pNum = currentPeriodNum();
     const curP = getPeriods().find(x => x.num === pNum);
     const ty   = curP ? getTaxYearForOffset(curP.num - 48) : CONFIG.TAX_YEARS[0];
-    const la   = ty.londonAllow;
     const oldLondonEl = document.getElementById('oldLondon');
-    if (!oldLondonEl.value) oldLondonEl.value = la.toFixed(2);
+    const newLondonEl = document.getElementById('newLondon');
+    if (!oldLondonEl.value && ty.londonAllowPre) oldLondonEl.value = ty.londonAllowPre.toFixed(2);
+    if (!newLondonEl.value)                      newLondonEl.value = ty.londonAllow.toFixed(2);
     // Auto-select April period — Chiltern's pay anniversary is always 1 April
     const fromSel = document.getElementById('backPayFrom');
     if (fromSel && !fromSel.value) {
