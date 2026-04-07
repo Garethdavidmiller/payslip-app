@@ -1020,7 +1020,7 @@
         <select id="backPayFrom">
           <option value="">— all periods with saved data —</option>
         </select>
-        <div class="field-hint">The first period covered by the new rate — usually the April period. Earlier periods are excluded from the calculation.</div>
+        <div class="field-hint">Chiltern's pay anniversary is 1 April — pre-set to the April period of your current tax year. Change only if the award started at a different point.</div>
       </div>
 
       <div class="field">
@@ -1068,6 +1068,11 @@
       </div>
       <div class="backpay-notice" id="backPayNotice" style="display:none">
         ⚠️ This lump sum is taxed in the period it is paid. If it pushes your income over a tax band threshold that month, you may receive less than the gross figure shown — check your payslip carefully.
+      </div>
+      <!-- Apply new rate — updates Settings so future periods calculate at the new rate -->
+      <div id="applyRateWrap" style="display:none;margin-top:10px">
+        <button class="btn-primary" id="applyRateBtn"></button>
+        <div class="field-hint" id="applyRateFeedback" style="margin-top:6px;color:var(--success-text)"></div>
       </div>
       <!-- Per-period breakdown — collapsible, secondary to the total -->
       <button class="bd-btn" id="bpBreakdownBtn" style="display:none">
@@ -1181,7 +1186,7 @@
 //     and the TAX / NI / SL threshold values below.
 //     P48 anchor (13 Feb 2026) stays fixed as the offset reference point.
 const CONFIG = {
-  APP_VERSION:    '1.02',
+  APP_VERSION:    '1.05',
   // Period arithmetic
   ANCHOR_DATE:    new Date(2026, 1, 13), // P48 payday: 13 Feb 2026 (fixed reference)
   PERIOD_DAYS:    28,
@@ -1199,8 +1204,8 @@ const CONFIG = {
   // 2026/27: P50 (paid ~10 Apr 2026) → P62 (paid ~11 Mar 2027)  offsets  +2 to +14
   // hppPaidJan = the January in which Chiltern pay that year's HPP lump sum
   TAX_YEARS: [
-    { label: '2025/26', first: -11, last:  1, hppPaidJan: 2027, londonAllow: 276.16 }, // £3,590.08/yr ÷ 13
-    { label: '2026/27', first:   2, last: 14, hppPaidJan: 2028, londonAllow: 276.16 }, // ⚠️ Update when pay award confirmed
+    { label: '2025/26', first: -11, last:  1, hppPaidJan: 2027, londonAllow: 276.16, londonAllowPre: 267.08 }, // pre-award £267.08 (P8–P28); new £276.16 from P36 (Oct award)
+    { label: '2026/27', first:   2, last: 14, hppPaidJan: 2028, londonAllow: 276.16 }, // ⚠️ Update londonAllowPre + londonAllow when pay award confirmed
   ],
 };
 
@@ -1916,13 +1921,20 @@ function toggleBackPay() {
     ? 'Show pay rise back-pay calculator ↓'
     : 'Hide pay rise back-pay calculator ↑';
   if (!showing) {
-    // Pre-fill London Allowance with current period's value as a convenience
+    // Pre-fill London Allowance fields — old = pre-award rate, new = current rate
     const pNum = currentPeriodNum();
     const curP = getPeriods().find(x => x.num === pNum);
     const ty   = curP ? getTaxYearForOffset(curP.num - 48) : CONFIG.TAX_YEARS[0];
-    const la   = ty.londonAllow;
     const oldLondonEl = document.getElementById('oldLondon');
-    if (!oldLondonEl.value) oldLondonEl.value = la.toFixed(2);
+    const newLondonEl = document.getElementById('newLondon');
+    if (!oldLondonEl.value && ty.londonAllowPre) oldLondonEl.value = ty.londonAllowPre.toFixed(2);
+    if (!newLondonEl.value)                      newLondonEl.value = ty.londonAllow.toFixed(2);
+    // Auto-select April period — Chiltern's pay anniversary is always 1 April
+    const fromSel = document.getElementById('backPayFrom');
+    if (fromSel && !fromSel.value) {
+      const aprilPNum = 48 + ty.first; // first period of the current tax year (April)
+      fromSel.value = aprilPNum;
+    }
     calcBackPay();
   }
 }
@@ -1940,20 +1952,25 @@ function calcBackPay() {
   const breakdownBtn = document.getElementById('bpBreakdownBtn');
 
   const fromPNum  = +(document.getElementById('backPayFrom')?.value || 0);
+  const bpSel     = document.getElementById('backPayPeriod');
+  const bpPNum    = bpSel ? +bpSel.value : 0; // "paid in" period — also the cap
+  const bpP       = bpPNum ? getPeriods().find(x => x.num === bpPNum) : null;
   const hasRate   = oldRate   > 0 && newRate   > 0 && newRate   > oldRate;
   const hasLondon = oldLondon > 0 && newLondon > 0 && newLondon > oldLondon;
 
   const labelEl    = document.getElementById('backPayTotalLabel');
   const periodWrap = document.getElementById('backPayPeriodWrap');
-  const bpSel      = document.getElementById('backPayPeriod');
+  const applyWrap  = document.getElementById('applyRateWrap');
+  const applyBtn   = document.getElementById('applyRateBtn');
 
   if (!hasRate && !hasLondon) {
     rowsEl.innerHTML = '';
     rowsEl.classList.remove('open');
-    totalEl.style.display    = 'none';
-    noticeEl.style.display   = 'none';
+    totalEl.style.display      = 'none';
+    noticeEl.style.display     = 'none';
     breakdownBtn.style.display = 'none';
     if (periodWrap) periodWrap.style.display = 'none';
+    if (applyWrap)  applyWrap.style.display  = 'none';
     return;
   }
 
@@ -1966,7 +1983,8 @@ function calcBackPay() {
 
   periods.forEach(p => {
     try {
-      if (fromPNum && p.num < fromPNum) return; // exclude periods before "from"
+      if (fromPNum && p.num < fromPNum) return; // exclude before April
+      if (bpPNum   && p.num > bpPNum)  return; // exclude after "paid in" period
       const raw = localStorage.getItem(periodKey(p.num));
       if (!raw) return;
       const d = JSON.parse(raw);
@@ -2003,12 +2021,8 @@ function calcBackPay() {
   });
 
   if (grandTotal > 0) {
-    // Resolve the selected "paid in" period (if any)
-    const bpPNum = bpSel ? +bpSel.value : 0;
-    const bpP    = bpPNum ? getPeriods().find(x => x.num === bpPNum) : null;
-
-    // Total is the headline — shown first
-    totalEl.style.display = 'block';
+    // Total headline
+    totalEl.style.display  = 'block';
     totalAmtEl.textContent = fmt(grandTotal);
     if (labelEl) {
       labelEl.textContent = bpP
@@ -2020,10 +2034,10 @@ function calcBackPay() {
     if (hasLondon) parts.push(`London Allow ${fmt(oldLondon)} → ${fmt(newLondon)}`);
     totalBasEl.textContent = `${pCount} period${pCount > 1 ? 's' : ''} backdated · ${parts.join(' · ')}`;
 
-    // Show period selector
+    // "Paid in" period selector
     if (periodWrap) periodWrap.style.display = 'block';
 
-    // Tax caution — specific if a period is selected, generic otherwise
+    // Tax caution
     noticeEl.style.display = 'block';
     if (bpP) {
       const payLong = bpP.payday.toLocaleDateString('en-GB', {
@@ -2034,14 +2048,28 @@ function calcBackPay() {
       noticeEl.textContent = '⚠️ This lump sum is taxed in the period it is paid. Select a period above to see a specific warning. If it pushes your income over a tax band threshold that month, you may receive less than the gross figure shown.';
     }
 
-    // Per-period breakdown — collapsible, secondary
+    // Apply new rate button — shown once rates are confirmed
+    if (applyWrap && applyBtn && hasRate) {
+      const currentRate = numVal('hourlyRate');
+      const alreadyApplied = Math.abs(currentRate - newRate) < 0.001;
+      applyBtn.textContent = alreadyApplied
+        ? `✓ New rate already applied — £${newRate.toFixed(2)}/hr`
+        : `Apply new rate to settings — £${newRate.toFixed(2)}/hr →`;
+      applyBtn.disabled = alreadyApplied;
+      applyWrap.style.display = 'block';
+    } else if (applyWrap) {
+      applyWrap.style.display = 'none';
+    }
+
+    // Per-period breakdown
     rowsEl.innerHTML = rows;
     breakdownBtn.style.display = 'flex';
   } else {
-    totalEl.style.display    = 'none';
-    noticeEl.style.display   = 'none';
+    totalEl.style.display      = 'none';
+    noticeEl.style.display     = 'none';
     breakdownBtn.style.display = 'none';
     if (periodWrap) periodWrap.style.display = 'none';
+    if (applyWrap)  applyWrap.style.display  = 'none';
     rowsEl.innerHTML = '<p style="font-size:13px;color:var(--text-light);padding:8px 0">No saved periods found. Enter hours for each period first.</p>';
   }
 }
@@ -2049,6 +2077,19 @@ function calcBackPay() {
 function toggleBpBreakdown() {
   document.getElementById('bpBreakdownBtn').classList.toggle('open');
   document.getElementById('backPayRows').classList.toggle('open');
+}
+
+function applyNewRate() {
+  const newRate = parseFloat(document.getElementById('newRateInput').value);
+  if (!newRate) return;
+  document.getElementById('hourlyRate').value = newRate.toFixed(2);
+  saveSettings();
+  calculate();
+  // Update button state to reflect it's been applied
+  const btn = document.getElementById('applyRateBtn');
+  const fb  = document.getElementById('applyRateFeedback');
+  if (btn) { btn.textContent = `✓ New rate already applied — £${newRate.toFixed(2)}/hr`; btn.disabled = true; }
+  if (fb)  { fb.textContent  = 'Settings updated — all future periods will now calculate at the new rate.'; }
 }
 
 // ── HPP FORMULA NOTE TOGGLE ───────────────────────────────────────────────────
@@ -2118,11 +2159,12 @@ document.getElementById('peerPlus').addEventListener('click',  () => stepPeer(1)
   document.getElementById(id).addEventListener('input', calcBackPay);
 });
 
-// Back-pay toggle + period selectors
+// Back-pay toggle + period selectors + apply rate
 document.getElementById('backPayToggle').addEventListener('click', toggleBackPay);
 document.getElementById('bpBreakdownBtn').addEventListener('click', toggleBpBreakdown);
 document.getElementById('backPayFrom').addEventListener('change', calcBackPay);
 document.getElementById('backPayPeriod').addEventListener('change', calcBackPay);
+document.getElementById('applyRateBtn').addEventListener('click', applyNewRate);
 
 // Settings
 document.getElementById('hourlyRate').addEventListener('input',  () => { saveSettings(); calculate(); });
