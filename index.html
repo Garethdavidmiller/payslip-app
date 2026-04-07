@@ -705,6 +705,35 @@
     padding-top: 8px !important; padding-bottom: 16px !important;
   }
 
+  /* ── TAX YEAR QUICK-JUMP TABS ── */
+  .ty-tabs {
+    display: flex; gap: 6px; margin-bottom: 8px;
+  }
+  .ty-tab {
+    flex: 1; padding: 7px 8px;
+    background: transparent; color: var(--text-mid);
+    border: 1.5px solid var(--border-mid); border-radius: var(--radius-sm);
+    font-size: var(--type-small); font-weight: 700;
+    cursor: pointer; touch-action: manipulation;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    font-family: inherit;
+  }
+  .ty-tab.active {
+    background: var(--primary-blue); color: white; border-color: var(--primary-blue);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .ty-tab:not(.active):hover { background: var(--bg-faint); border-color: var(--primary-blue); }
+  }
+
+  /* ── SL SKIP + OTHER ADJ FIELDS ── */
+  .toggle-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 0; border-top: 1px solid var(--border-light);
+  }
+  .toggle-row input[type="checkbox"] { width: 18px; height: 18px; flex-shrink: 0; cursor: pointer; }
+  .toggle-row label { font-size: var(--type-body); color: var(--text-mid); cursor: pointer; margin: 0; font-weight: 400; }
+  .toggle-row.hidden { display: none; }
+
   /* ── UPDATE BANNER (shown when a new version is waiting) ── */
   #updateBanner {
     display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 9998;
@@ -791,6 +820,16 @@
     <div class="card-body collapsible-body open" id="settingsBody">
 
       <div class="field">
+        <label>Grade</label>
+        <select id="gradeSelect">
+          <option value="cea">CEA — Customer Experience Adviser</option>
+          <option value="ces" disabled>CES — Customer Experience Supervisor (coming soon)</option>
+          <option value="dispatch" disabled>Dispatch (coming soon)</option>
+        </select>
+        <div class="field-hint">Your grade determines your contracted hours and pay rates. CEA is the only grade supported in this version.</div>
+      </div>
+
+      <div class="field">
         <label>Your Hourly Rate</label>
         <div class="pfx">
           <span class="pfx-sym">£</span>
@@ -811,7 +850,7 @@
           <span class="pfx-sym">£</span>
           <input type="number" id="pensionAmt" step="0.01" min="0" value="154.77" inputmode="decimal">
         </div>
-        <div class="field-hint">Your pension deduction per period — shown as "Smart RPS CR Scheme" on your payslip. Deducted before tax and NI, which reduces both.</div>
+        <div class="field-hint">Your pension deduction per period — shown as "Smart RPS CR Scheme" on your payslip. Deducted before tax and NI, which reduces both. The amount varies across the year — check each period's payslip, as earlier periods may show a different figure.</div>
         <div id="pensionWarn" class="val-warn" style="display:none">⚠ Pension contribution exceeds gross pay — check the amount</div>
       </div>
 
@@ -833,6 +872,10 @@
 
   <!-- PERIOD SELECTOR -->
   <div class="controls">
+    <div class="ty-tabs">
+      <button class="ty-tab" id="tyTab0" data-ty="0">Tax year 2025/26</button>
+      <button class="ty-tab" id="tyTab1" data-ty="1">Tax year 2026/27</button>
+    </div>
     <select id="periodSelect"></select>
     <div class="period-nav">
       <button class="nav-pill" id="prevBtn">← Prev</button>
@@ -862,6 +905,9 @@
     <div class="summary" id="summary"></div>
     <div class="payslip-note" id="payslipNote" style="display:none">
       ℹ️ Your pension (£<span id="pensionRef">–</span>/period) is deducted before tax — so your payslip's gross figure will be lower than the total above. This is normal.
+    </div>
+    <div class="payslip-note" style="color:var(--text-mid);font-size:var(--type-small);border-top:1px solid var(--border-light);padding-top:8px;margin-top:4px">
+      ⚠️ Less accurate in periods with absence, back pay, or payroll corrections — those may not reconcile line-for-line with your payslip.
     </div>
     <button class="bd-btn" id="bdBtn">
       Full pay breakdown &nbsp;<span class="bd-arrow">▼</span>
@@ -1046,6 +1092,25 @@
         </div>
       </div>
 
+      <!-- ── PERIOD OVERRIDES ── -->
+      <div class="sec-hd" style="margin-top:8px">Period Adjustments</div>
+
+      <div class="toggle-row hidden" id="slSkipRow">
+        <input type="checkbox" id="slSkipCheck">
+        <label for="slSkipCheck">Student loan was <strong>not</strong> deducted this period</label>
+      </div>
+
+      <div class="hours-row" style="padding-top:10px;border-top:1px solid var(--border-light)">
+        <div class="h-info">
+          <div class="h-title">± Other payroll adjustment</div>
+          <div class="h-sub">For absence offsets, corrections, or any "Other" line on your payslip. Use a negative number for a deduction (e.g. −£45.00), positive for an addition.</div>
+        </div>
+        <div class="pfx" style="width:110px;flex-shrink:0">
+          <span class="pfx-sym">£</span>
+          <input type="number" id="otherAdj" step="0.01" placeholder="0.00" inputmode="decimal" style="text-align:right">
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -1082,12 +1147,12 @@
       </div>
 
       <div class="field">
-        <label>Holiday pay bonus received in January <span class="note">optional</span></label>
+        <label>Holiday Pay Premium (HPP) received in January <span class="note">optional</span></label>
         <div class="pfx">
           <span class="pfx-sym">£</span>
           <input type="number" id="hppActual" step="0.01" min="0" placeholder="0.00" inputmode="decimal">
         </div>
-        <div class="field-hint">Once Chiltern pay your holiday pay bonus in January, enter the actual figure from your payslip here. The estimate below will be replaced with your confirmed amount.</div>
+        <div class="field-hint">Once Chiltern pay your Holiday Pay Premium (HPP) in January, enter the actual figure from your payslip here. The estimate below will be replaced with your confirmed amount.</div>
       </div>
 
     </div>
@@ -1097,15 +1162,15 @@
   <div class="content-card">
     <div class="card-header card-header-toggle" id="hppCardToggle">
       <div>
-        <h2>🏖️ Holiday Pay Bonus Estimate</h2>
+        <h2>🏖️ Holiday Pay Premium (HPP)</h2>
         <span class="hint">Chiltern pay this once a year, each January</span>
       </div>
       <span class="card-toggle-arrow">▼</span>
     </div>
     <div class="card-body collapsible-body" id="hppCardBody">
-      <p class="card-explainer">When you take annual leave, Chiltern only pay your basic rate — you miss out on overtime and rest day pay. To make up for this, they pay a Holiday Pay Bonus as a lump sum every January. <button class="disclaimer-toggle" id="hppBackPayLink">Expecting a pay rise? Calculate back pay →</button></p>
+      <p class="card-explainer">When you take annual leave, Chiltern only pay your basic rate — you miss out on overtime and rest day pay. To make up for this, they calculate a <strong>Holiday Pay Premium (HPP)</strong> and pay it as a lump sum every January. <button class="disclaimer-toggle" id="hppBackPayLink">Expecting a pay rise? Calculate back pay →</button></p>
       <div class="hpp-result">
-        <div class="hpp-label" id="hppLabel">Estimated holiday pay bonus for this tax year</div>
+        <div class="hpp-label" id="hppLabel">Estimated Holiday Pay Premium for this tax year</div>
         <div class="hpp-amount" id="hppAmount">£–</div>
         <div class="hpp-basis" id="hppBasis">Enter hours across your periods above to calculate</div>
       </div>
@@ -1180,7 +1245,7 @@
         <div class="field-hint">Which payslip will carry the full lump sum? Select it to see a specific tax warning for that period.</div>
       </div>
       <div class="backpay-notice" id="backPayNotice" style="display:none">
-        ⚠️ This lump sum is taxed in the period it is paid. If it pushes your income over a tax band threshold that month, you may receive less than the gross figure shown — check your payslip carefully.
+        ⚠️ This lump sum is taxed in the period it is paid. If it pushes your income over a tax band threshold that month, you may receive less than the gross figure shown — check your payslip carefully. Your payslip may split the back pay across multiple lines (Basic Pay, Overtime, RDW, etc.) but the total should match this figure.
       </div>
       <!-- Apply new rate — updates Settings so future periods calculate at the new rate -->
       <div id="applyRateWrap" style="display:none;margin-top:10px">
@@ -1237,7 +1302,7 @@
 //     and the TAX / NI / SL threshold values below.
 //     P48 anchor (13 Feb 2026) stays fixed as the offset reference point.
 const CONFIG = {
-  APP_VERSION:    '1.10',
+  APP_VERSION:    '1.11',
   // Period arithmetic
   ANCHOR_DATE:    new Date(2026, 1, 13), // P48 payday: 13 Feb 2026 (fixed reference)
   PERIOD_DAYS:    28,
@@ -1323,13 +1388,22 @@ const SCOTTISH_TAX_BY_YEAR = {
 // HPP: (Gross − Basic) × 4/52 — confirmed by Marie Firby, Chiltern payroll
 const HPP_FRACTION = 4 / 52;
 
+// ── GRADES — contractual data per grade ───────────────────────────────────────
+// Only CEA is active. CES and Dispatch will be added here when rates are confirmed.
+// Each grade entry drives contracted hours, default rate, and default pension.
+const GRADES = {
+  cea: { label: 'CEA', rate: 20.74, contr: 140, pension: 154.77 },
+  // ces:      { label: 'CES',      rate: 0, contr: 0, pension: 0 }, // add when confirmed
+  // dispatch: { label: 'Dispatch', rate: 0, contr: 0, pension: 0 }, // add when confirmed
+};
+
 // ── STORAGE KEYS ──────────────────────────────────────────────────────────────
-const SK = { rate:'cea_rate', code:'cea_code', sl:'cea_sl', pension:'cea_pension', setup:'cea_setup_done', ytdPay:'cea_ytd_pay', ytdTax:'cea_ytd_tax', hppActual:'cea_hpp_actual' };
+const SK = { rate:'cea_rate', code:'cea_code', sl:'cea_sl', pension:'cea_pension', setup:'cea_setup_done', ytdPay:'cea_ytd_pay', ytdTax:'cea_ytd_tax', hppActual:'cea_hpp_actual', grade:'cea_grade' };
 function periodKey(pNum) { return `cea_p${pNum}`; }
 
 // Period data schema — all fields that get saved per period
 function emptyPeriodData() {
-  return { satH:0, satM:0, bhH:0, bhM:0, bhOtH:0, bhOtM:0, otH:0, otM:0, rdwH:0, rdwM:0, sunH:0, sunM:0, boxH:0, boxM:0, peer:0 };
+  return { satH:0, satM:0, bhH:0, bhM:0, bhOtH:0, bhOtM:0, otH:0, otM:0, rdwH:0, rdwM:0, sunH:0, sunM:0, boxH:0, boxM:0, peer:0, slSkip:false, otherAdj:0 };
 }
 
 // ── DATE HELPERS ──────────────────────────────────────────────────────────────
@@ -1497,6 +1571,27 @@ function buildBackPayPeriodSelect() {
   populate(fromSel, '— all periods with saved data —');
 }
 
+// ── TAX YEAR TABS ─────────────────────────────────────────────────────────────
+function updateTyTabs() {
+  const pNum = currentPeriodNum();
+  const offset = pNum - 48;
+  CONFIG.TAX_YEARS.forEach((ty, i) => {
+    const tab = document.getElementById(`tyTab${i}`);
+    if (tab) tab.classList.toggle('active', offset >= ty.first && offset <= ty.last);
+  });
+}
+
+function jumpToTaxYear(tyIndex) {
+  const ty      = CONFIG.TAX_YEARS[tyIndex];
+  if (!ty) return;
+  const periods = getPeriods();
+  // Find first period of that tax year
+  const first   = periods.find(p => (p.num - 48) >= ty.first && (p.num - 48) <= ty.last);
+  if (!first) return;
+  document.getElementById('periodSelect').value = first.num;
+  onPeriodChange();
+}
+
 function prevPeriod() {
   const sel     = document.getElementById('periodSelect');
   const periods = getPeriods();
@@ -1558,6 +1653,9 @@ function onPeriodChange() {
     document.getElementById('boxM').value = '';
   }
 
+  // Update tax year tab active state
+  updateTyTabs();
+
   // Load saved data for this period
   loadPeriodData(p.num);
 
@@ -1588,6 +1686,8 @@ function readFormData() {
     sunH: intVal('sunH'), sunM: intVal('sunM'),
     boxH: intVal('boxH'), boxM: intVal('boxM'),
     peer: +document.getElementById('peerVal').textContent,
+    slSkip:   document.getElementById('slSkipCheck').checked,
+    otherAdj: parseFloat(document.getElementById('otherAdj').value) || 0,
   };
 }
 
@@ -1600,7 +1700,9 @@ function writeFormData(d) {
   set('rdwH', d.rdwH || ''); set('rdwM', d.rdwM || '');
   set('sunH', d.sunH || ''); set('sunM', d.sunM || '');
   set('boxH', d.boxH || ''); set('boxM', d.boxM || '');
-  document.getElementById('peerVal').textContent = d.peer || 0;
+  document.getElementById('peerVal').textContent  = d.peer || 0;
+  document.getElementById('slSkipCheck').checked  = d.slSkip || false;
+  document.getElementById('otherAdj').value        = d.otherAdj || '';
 }
 
 function isDataEmpty(d) {
@@ -1610,7 +1712,8 @@ function isDataEmpty(d) {
          !d.otH  && !d.otM  &&
          !d.rdwH && !d.rdwM &&
          !d.sunH && !d.sunM &&
-         !d.boxH && !d.boxM && !d.peer;
+         !d.boxH && !d.boxM && !d.peer &&
+         !d.slSkip && !d.otherAdj;
 }
 
 function autosave() {
@@ -1682,13 +1785,14 @@ function clearPeriod() {
 
 // ── SETTINGS SAVE / LOAD ──────────────────────────────────────────────────────
 function saveSettings() {
-  localStorage.setItem(SK.rate,    document.getElementById('hourlyRate').value);
-  localStorage.setItem(SK.code,    document.getElementById('taxCode').value);
-  localStorage.setItem(SK.sl,      document.getElementById('studentLoan').value);
-  localStorage.setItem(SK.pension, document.getElementById('pensionAmt').value);
+  localStorage.setItem(SK.rate,      document.getElementById('hourlyRate').value);
+  localStorage.setItem(SK.code,      document.getElementById('taxCode').value);
+  localStorage.setItem(SK.sl,        document.getElementById('studentLoan').value);
+  localStorage.setItem(SK.pension,   document.getElementById('pensionAmt').value);
   localStorage.setItem(SK.ytdPay,    document.getElementById('ytdPay').value);
   localStorage.setItem(SK.ytdTax,    document.getElementById('ytdTax').value);
   localStorage.setItem(SK.hppActual, document.getElementById('hppActual').value);
+  localStorage.setItem(SK.grade,     document.getElementById('gradeSelect').value);
   localStorage.setItem(SK.setup,     '1'); // mark setup as done
   document.getElementById('setupBanner').classList.add('hidden');
   calculate();
@@ -1710,6 +1814,8 @@ function loadSettings() {
   if (ytdTax)  document.getElementById('ytdTax').value      = ytdTax;
   const hppActual = localStorage.getItem(SK.hppActual);
   if (hppActual) document.getElementById('hppActual').value = hppActual;
+  const grade = localStorage.getItem(SK.grade);
+  if (grade) document.getElementById('gradeSelect').value = grade;
   // On repeat visits: hide banner and collapse Settings so it's out of the way
   if (done) {
     document.getElementById('setupBanner').classList.add('hidden');
@@ -1768,7 +1874,8 @@ function calculate() {
   const gSunday    = sHrs      * r150;
   const gBoxing    = bHrs      * r300;
   const gPeer      = peer * 2  * rate;
-  const gross      = gBasicNorm + gBasicSat + gBankHol + gBhOt + gOvertime + gRdw + gSunday + gBoxing + gPeer + LONDON;
+  const otherAdj   = parseFloat(document.getElementById('otherAdj').value) || 0;
+  const gross      = gBasicNorm + gBasicSat + gBankHol + gBhOt + gOvertime + gRdw + gSunday + gBoxing + gPeer + LONDON + otherAdj;
 
   // Pension — salary sacrifice: deducted from gross before tax and NI are calculated.
   // This reduces taxable pay and NI-able pay, saving the employee on both.
@@ -1890,7 +1997,10 @@ function calculate() {
   // Thresholds are looked up per tax year (they rise each April).
   const plan    = document.getElementById('studentLoan').value;
   const SL_PLAN = (SL || {})[plan];
-  const sl      = SL_PLAN ? Math.max(0, (sacGross - SL_PLAN.t) * SL_PLAN.r) : 0;
+  const slSkip  = document.getElementById('slSkipCheck').checked;
+  // Show the "not deducted this period" toggle only when a plan is selected
+  document.getElementById('slSkipRow').classList.toggle('hidden', plan === 'none');
+  const sl      = (SL_PLAN && !slSkip) ? Math.max(0, (sacGross - SL_PLAN.t) * SL_PLAN.r) : 0;
 
   const net = sacGross - tax - ni - sl; // same as gross - pension - tax - ni - sl
 
@@ -1932,6 +2042,10 @@ function calculate() {
   if (peer > 0)
     bd += `<div class="bd-row"><span class="b-lbl">Training Days (${peer} day${peer>1?'s':''} × 2h × ${fmt(rate)})</span><span class="b-val">${fmt(gPeer)}</span></div>`;
   bd += `<div class="bd-row"><span class="b-lbl">London Allowance</span><span class="b-val">${fmt(LONDON)}</span></div>`;
+  if (otherAdj !== 0)
+    bd += `<div class="bd-row"><span class="b-lbl">Other payroll adjustment</span><span class="b-val">${otherAdj >= 0 ? '+' : ''}${fmt(otherAdj)}</span></div>`;
+  if (slSkip && plan !== 'none')
+    bd += `<div class="bd-row"><span class="b-lbl" style="font-style:italic;color:var(--text-faint)">Student loan not deducted this period</span><span class="b-val"></span></div>`;
   if (usingCumulative)
     bd += `<div class="bd-row"><span class="b-lbl" style="font-style:italic;color:var(--text-faint)">Tax estimated using HMRC's cumulative method — YTD figures from your last payslip</span><span class="b-val"></span></div>`;
   document.getElementById('bdBody').innerHTML = bd;
@@ -2010,11 +2124,11 @@ function calcHPP() {
     amountEl.textContent = fmt(actual);
     basisEl.textContent  = `Confirmed figure from your January ${ty.hppPaidJan} payslip`;
   } else if (pCount === 0) {
-    if (labelEl) labelEl.textContent = 'Estimated holiday pay bonus for this tax year';
+    if (labelEl) labelEl.textContent = 'Estimated Holiday Pay Premium for this tax year';
     amountEl.textContent = '£–';
     basisEl.textContent  = 'Enter hours across your periods above to calculate';
   } else {
-    if (labelEl) labelEl.textContent = 'Estimated holiday pay bonus for this tax year';
+    if (labelEl) labelEl.textContent = 'Estimated Holiday Pay Premium for this tax year';
     amountEl.textContent = fmt(hpp);
     basisEl.textContent  = `${pCount} period${pCount > 1 ? 's' : ''} of ${ty.label} · ${fmt(totalVar)} variable pay × 7.69% (4/52)`;
   }
@@ -2300,11 +2414,20 @@ document.getElementById('backPayFrom').addEventListener('change', calcBackPay);
 document.getElementById('backPayPeriod').addEventListener('change', calcBackPay);
 document.getElementById('applyRateBtn').addEventListener('click', applyNewRate);
 
+// Tax year tabs
+document.getElementById('tyTab0').addEventListener('click', () => jumpToTaxYear(0));
+document.getElementById('tyTab1').addEventListener('click', () => jumpToTaxYear(1));
+
 // Settings inputs
+document.getElementById('gradeSelect').addEventListener('change', () => { saveSettings(); });
 document.getElementById('hourlyRate').addEventListener('input',  () => { saveSettings(); calculate(); });
 document.getElementById('taxCode').addEventListener('input',     () => { saveSettings(); calculate(); });
 document.getElementById('studentLoan').addEventListener('change',() => { saveSettings(); calculate(); });
 document.getElementById('pensionAmt').addEventListener('input',  () => { saveSettings(); calculate(); });
+
+// Per-period overrides
+document.getElementById('slSkipCheck').addEventListener('change', autosave);
+document.getElementById('otherAdj').addEventListener('input', autosave);
 
 // Payslip card inputs
 document.getElementById('ytdPay').addEventListener('input',    () => { saveSettings(); calculate(); });
