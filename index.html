@@ -923,6 +923,27 @@
         </div>
       </div>
 
+      <!-- Bank Holiday Overtime -->
+      <div class="hours-row">
+        <div class="h-info">
+          <div class="h-title">🏖️ Bank Holiday Overtime <span class="rate-badge badge-bh" id="badge-bhot">1.25×  ·  £25.93/hr</span></div>
+          <div class="h-sub">Extra (non-rostered) hours worked on a bank holiday. Shows as "Bank Holiday Overtime 1.25" on your payslip.</div>
+        </div>
+        <div>
+          <div class="hhmm-wrap">
+            <div class="hhmm-field">
+              <input type="number" id="bhOtH" min="0" max="99" placeholder="0" inputmode="numeric">
+              <span class="hhmm-lbl">hrs</span>
+            </div>
+            <span class="hhmm-sep">:</span>
+            <div class="hhmm-field">
+              <input type="number" id="bhOtM" min="0" max="59" placeholder="00" inputmode="numeric">
+              <span class="hhmm-lbl">mins</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- ── REST DAY WORKING ── -->
       <div class="sec-hd">Overtime &amp; Rest Day Working</div>
 
@@ -1216,7 +1237,7 @@
 //     and the TAX / NI / SL threshold values below.
 //     P48 anchor (13 Feb 2026) stays fixed as the offset reference point.
 const CONFIG = {
-  APP_VERSION:    '1.09',
+  APP_VERSION:    '1.10',
   // Period arithmetic
   ANCHOR_DATE:    new Date(2026, 1, 13), // P48 payday: 13 Feb 2026 (fixed reference)
   PERIOD_DAYS:    28,
@@ -1308,7 +1329,7 @@ function periodKey(pNum) { return `cea_p${pNum}`; }
 
 // Period data schema — all fields that get saved per period
 function emptyPeriodData() {
-  return { satH:0, satM:0, bhH:0, bhM:0, otH:0, otM:0, rdwH:0, rdwM:0, sunH:0, sunM:0, boxH:0, boxM:0, peer:0 };
+  return { satH:0, satM:0, bhH:0, bhM:0, bhOtH:0, bhOtM:0, otH:0, otM:0, rdwH:0, rdwM:0, sunH:0, sunM:0, boxH:0, boxM:0, peer:0 };
 }
 
 // ── DATE HELPERS ──────────────────────────────────────────────────────────────
@@ -1561,6 +1582,7 @@ function readFormData() {
   return {
     satH: intVal('satH'), satM: intVal('satM'),
     bhH:  intVal('bhH'),  bhM:  intVal('bhM'),
+    bhOtH:intVal('bhOtH'),bhOtM:intVal('bhOtM'),
     otH:  intVal('otH'),  otM:  intVal('otM'),
     rdwH: intVal('rdwH'), rdwM: intVal('rdwM'),
     sunH: intVal('sunH'), sunM: intVal('sunM'),
@@ -1572,8 +1594,9 @@ function readFormData() {
 function writeFormData(d) {
   const set = (id, v) => { document.getElementById(id).value = v || ''; };
   set('satH', d.satH || ''); set('satM', d.satM || '');
-  set('bhH',  d.bhH  || ''); set('bhM',  d.bhM  || '');
-  set('otH',  d.otH  || ''); set('otM',  d.otM  || '');
+  set('bhH',   d.bhH   || ''); set('bhM',   d.bhM   || '');
+  set('bhOtH', d.bhOtH || ''); set('bhOtM', d.bhOtM || '');
+  set('otH',   d.otH   || ''); set('otM',   d.otM   || '');
   set('rdwH', d.rdwH || ''); set('rdwM', d.rdwM || '');
   set('sunH', d.sunH || ''); set('sunM', d.sunM || '');
   set('boxH', d.boxH || ''); set('boxM', d.boxM || '');
@@ -1583,6 +1606,7 @@ function writeFormData(d) {
 function isDataEmpty(d) {
   return !d.satH && !d.satM &&
          !d.bhH  && !d.bhM  &&
+         !d.bhOtH && !d.bhOtM &&
          !d.otH  && !d.otM  &&
          !d.rdwH && !d.rdwM &&
          !d.sunH && !d.sunM &&
@@ -1698,8 +1722,9 @@ function loadSettings() {
 function updateBadges(rate) {
   const f = (r, mult) => `${mult}×  ·  £${(rate * r).toFixed(2)}/hr`;
   document.getElementById('badge-sat').textContent = f(1.25, '1.25');
-  document.getElementById('badge-bh').textContent  = f(1.25, '1.25');
-  document.getElementById('badge-ot').textContent  = f(1.25, '1.25');
+  document.getElementById('badge-bh').textContent   = f(1.25, '1.25');
+  document.getElementById('badge-bhot').textContent = f(1.25, '1.25');
+  document.getElementById('badge-ot').textContent   = f(1.25, '1.25');
   document.getElementById('badge-rdw').textContent = f(1.25, '1.25');
   document.getElementById('badge-sun').textContent = f(1.50, '1.5');
   document.getElementById('badge-box').textContent = f(3.00, '3');
@@ -1719,12 +1744,13 @@ function calculate() {
   const r300 = rate * 3.00;
   const peer = +document.getElementById('peerVal').textContent;
 
-  const satHrs = hhmmDec('satH', 'satM');
-  const bhHrs  = hhmmDec('bhH',  'bhM');
-  const oHrs   = hhmmDec('otH',  'otM');
-  const rHrs   = hhmmDec('rdwH', 'rdwM');
-  const sHrs   = hhmmDec('sunH', 'sunM');
-  const bHrs   = hhmmDec('boxH', 'boxM');
+  const satHrs  = hhmmDec('satH',  'satM');
+  const bhHrs   = hhmmDec('bhH',   'bhM');
+  const bhOtHrs = hhmmDec('bhOtH', 'bhOtM');
+  const oHrs    = hhmmDec('otH',   'otM');
+  const rHrs    = hhmmDec('rdwH',  'rdwM');
+  const sHrs    = hhmmDec('sunH',  'sunM');
+  const bHrs    = hhmmDec('boxH',  'boxM');
 
   const satCapped  = Math.min(satHrs, CONTR);
   const normHrs    = CONTR - satCapped;     // non-Saturday contracted hours
@@ -1736,12 +1762,13 @@ function calculate() {
   // Bank Holiday Rostered: full 1.25× pay for contracted shifts on bank holidays.
   // Matches payslip line "Bank Holiday Rostered 1.25" exactly.
   const gBankHol   = bhCapped   * r125;
+  const gBhOt      = bhOtHrs   * r125;
   const gOvertime  = oHrs      * r125;
   const gRdw       = rHrs      * r125;
   const gSunday    = sHrs      * r150;
   const gBoxing    = bHrs      * r300;
   const gPeer      = peer * 2  * rate;
-  const gross      = gBasicNorm + gBasicSat + gBankHol + gOvertime + gRdw + gSunday + gBoxing + gPeer + LONDON;
+  const gross      = gBasicNorm + gBasicSat + gBankHol + gBhOt + gOvertime + gRdw + gSunday + gBoxing + gPeer + LONDON;
 
   // Pension — salary sacrifice: deducted from gross before tax and NI are calculated.
   // This reduces taxable pay and NI-able pay, saving the employee on both.
@@ -1892,6 +1919,8 @@ function calculate() {
     bd += `<div class="bd-row"><span class="b-lbl">Basic pay — Saturday (${fh(satCapped)} × ${fmt(r125)})</span><span class="b-val">${fmt(gBasicSat)}</span></div>`;
   if (bhCapped > 0)
     bd += `<div class="bd-row"><span class="b-lbl">Bank Holiday Rostered (${fh(bhCapped)} × ${fmt(r125)})</span><span class="b-val">${fmt(gBankHol)}</span></div>`;
+  if (bhOtHrs > 0)
+    bd += `<div class="bd-row"><span class="b-lbl">Bank Holiday Overtime (${fh(bhOtHrs)} × ${fmt(r125)})</span><span class="b-val">${fmt(gBhOt)}</span></div>`;
   if (oHrs > 0)
     bd += `<div class="bd-row"><span class="b-lbl">Unrostered Overtime (${fh(oHrs)} × ${fmt(r125)})</span><span class="b-val">${fmt(gOvertime)}</span></div>`;
   if (rHrs > 0)
@@ -1941,22 +1970,24 @@ function calcHPP() {
 
       const r125 = rate * 1.25, r150 = rate * 1.50, r300 = rate * 3.00;
       const satHrs = (d.satH || 0) + (d.satM || 0) / 60;
-      const bhHrs  = (d.bhH  || 0) + (d.bhM  || 0) / 60;
-      const otHrs  = (d.otH  || 0) + (d.otM  || 0) / 60;
-      const rdwHrs = (d.rdwH || 0) + (d.rdwM || 0) / 60;
-      const sunHrs = (d.sunH || 0) + (d.sunM || 0) / 60;
-      const boxHrs = (d.boxH || 0) + (d.boxM || 0) / 60;
+      const bhHrs   = (d.bhH   || 0) + (d.bhM   || 0) / 60;
+      const bhOtHrs = (d.bhOtH || 0) + (d.bhOtM || 0) / 60;
+      const otHrs   = (d.otH   || 0) + (d.otM   || 0) / 60;
+      const rdwHrs  = (d.rdwH  || 0) + (d.rdwM  || 0) / 60;
+      const sunHrs  = (d.sunH  || 0) + (d.sunM  || 0) / 60;
+      const boxHrs  = (d.boxH  || 0) + (d.boxM  || 0) / 60;
 
       // Variable pay = Gross minus Basic:
       // Saturday uplift (0.25× extra on sat hours)
       // Bank Holiday premium (0.25× extra on rostered BH hours)
-      // Full OT, RDW, Sunday, Boxing pay
+      // Full BH overtime, OT, RDW, Sunday, Boxing pay
       // London Allowance (explicitly included per Chiltern payroll)
       // NOT peer training (extra basic, not variable)
       const { londonAllow: pLondon } = getThresholds(getTaxYearForOffset(p.num - 48).label);
       const varPay =
         satHrs  * (rate * 0.25) +  // sat uplift above base rate
-        bhHrs   * (rate * 0.25) +  // bank holiday premium above base rate
+        bhHrs   * (rate * 0.25) +  // bank holiday rostered premium above base rate
+        bhOtHrs * r125           +  // full BH overtime pay
         otHrs   * r125           +  // full OT pay
         rdwHrs  * r125           +  // full RDW pay
         sunHrs  * r150           +  // full Sunday pay
@@ -2087,20 +2118,22 @@ function calcBackPay() {
       if (isDataEmpty(d)) return;
 
       const satHrs = (d.satH || 0) + (d.satM || 0) / 60;
-      const bhHrs  = (d.bhH  || 0) + (d.bhM  || 0) / 60;
-      const otHrs  = (d.otH  || 0) + (d.otM  || 0) / 60;
-      const rdwHrs = (d.rdwH || 0) + (d.rdwM || 0) / 60;
-      const sunHrs = (d.sunH || 0) + (d.sunM || 0) / 60;
-      const boxHrs = (d.boxH || 0) + (d.boxM || 0) / 60;
+      const bhHrs   = (d.bhH   || 0) + (d.bhM   || 0) / 60;
+      const bhOtHrs = (d.bhOtH || 0) + (d.bhOtM || 0) / 60;
+      const otHrs   = (d.otH   || 0) + (d.otM   || 0) / 60;
+      const rdwHrs  = (d.rdwH  || 0) + (d.rdwM  || 0) / 60;
+      const sunHrs  = (d.sunH  || 0) + (d.sunM  || 0) / 60;
+      const boxHrs  = (d.boxH  || 0) + (d.boxM  || 0) / 60;
 
       const ratePay =
-        CONTR   * rateDiff        +
-        satHrs  * rateDiff * 0.25 +
-        bhHrs   * rateDiff * 0.25 +
-        otHrs   * rateDiff * 1.25 +
-        rdwHrs  * rateDiff * 1.25 +
-        sunHrs  * rateDiff * 1.50 +
-        boxHrs  * rateDiff * 3.00 +
+        CONTR    * rateDiff        +
+        satHrs   * rateDiff * 0.25 +
+        bhHrs    * rateDiff * 0.25 +
+        bhOtHrs  * rateDiff * 1.25 +
+        otHrs    * rateDiff * 1.25 +
+        rdwHrs   * rateDiff * 1.25 +
+        sunHrs   * rateDiff * 1.50 +
+        boxHrs   * rateDiff * 3.00 +
         (d.peer || 0) * 2 * rateDiff;
 
       const backPay = ratePay + londonDiff;
@@ -2239,10 +2272,10 @@ document.getElementById('satH').addEventListener('input', () => { onHhMm('satH',
 document.getElementById('satM').addEventListener('input', () => { clampMins('satM'); onHhMm('satH','satM','satWarn'); autosave(); });
 
 // Hours inputs — minutes clamp + autosave
-['bhH','otH','rdwH','sunH','boxH'].forEach(id => {
+['bhH','bhOtH','otH','rdwH','sunH','boxH'].forEach(id => {
   document.getElementById(id).addEventListener('input', autosave);
 });
-['bhM','otM','rdwM','sunM','boxM'].forEach(id => {
+['bhM','bhOtM','otM','rdwM','sunM','boxM'].forEach(id => {
   document.getElementById(id).addEventListener('input', () => { clampMins(id); autosave(); });
 });
 
