@@ -215,6 +215,7 @@
     }
     .net-amount { font-size: 52px; font-weight: 800; color: white; letter-spacing: -2px; line-height: 1; }
     .net-period { font-size: 13px; color: rgba(255,255,255,0.3); margin-top: 4px; }
+    .net-hint   { font-size: 11px; color: rgba(255,255,255,0.22); margin-top: 3px; letter-spacing: 0.2px; }
 
     .summary { padding: 2px 16px; }
     .sum-row {
@@ -268,7 +269,7 @@
 
     /* Section headings inside cards */
     .sec-hd {
-      font-size: var(--type-small); font-weight: 700; color: var(--text-mid);
+      font-size: 13px; font-weight: 700; color: var(--text-mid);
       padding: 10px 0 5px; border-bottom: 1px solid var(--border-light);
     }
     .sec-hd.first { padding-top: 4px; }
@@ -419,6 +420,40 @@
       line-height: 1.6; margin-bottom: 16px; border-left: 3px solid var(--primary-blue);
     }
 
+
+    /* HPP formula note toggle */
+    .hpp-toggle-btn {
+      width: 100%; padding: 8px 0;
+      background: none; border: none; border-top: 1px solid var(--border-light);
+      font-family: inherit; font-size: var(--type-small); font-weight: 600;
+      color: var(--text-light); display: flex; align-items: center;
+      justify-content: center; gap: 5px; cursor: pointer;
+      touch-action: manipulation; margin-top: 2px;
+    }
+    .hpp-toggle-btn:active { color: var(--text-mid); }
+    .hpp-toggle-arrow { font-size: 9px; transition: transform 0.25s; display: inline-block; }
+    .hpp-toggle-btn.open .hpp-toggle-arrow { transform: rotate(180deg); }
+    .hpp-note-body { max-height: 0; overflow: hidden; transition: max-height 0.35s ease; }
+    .hpp-note-body.open { max-height: 400px; }
+
+    /* Actual HPP badge */
+    .actual-badge {
+      font-size: var(--type-micro); font-weight: 800;
+      background: var(--green-light); color: var(--green); border: 1.5px solid var(--green);
+      padding: 2px 8px; border-radius: 50px; margin-left: 8px; vertical-align: middle;
+    }
+
+    /* Disclaimer expand */
+    .disclaimer-toggle {
+      background: none; border: none; font-family: inherit;
+      font-size: var(--type-small); color: var(--text-light);
+      cursor: pointer; padding: 0; margin-left: 4px;
+      font-weight: 600; text-decoration: underline; text-underline-offset: 2px;
+      touch-action: manipulation;
+    }
+    .disclaimer-toggle:active { color: var(--text-mid); }
+    .disclaimer-extra { display: none; }
+    .disclaimer-extra.open { display: inline; }
 
     .card-explainer {
       font-size: 13px; color: var(--text-mid); line-height: 1.55; margin-bottom: 12px;
@@ -739,6 +774,7 @@
       <div class="net-label">💷 Estimated Net Pay</div>
       <div class="net-amount" id="netDisplay">£–</div>
       <div class="net-period" id="netPeriod">Select a pay period above</div>
+      <div class="net-hint" id="netHint">Enter your hours below — updates as you type</div>
     </div>
     <div class="summary" id="summary"></div>
     <div class="payslip-note" id="payslipNote" style="display:none">
@@ -765,7 +801,7 @@
       <div class="hours-row">
         <div class="h-info">
           <div class="h-title">🗓️ Saturday Hours <span class="rate-badge badge-sat" id="badge-sat">1.25×  ·  £25.92/hr</span></div>
-          <div class="h-sub">Saturdays in your contracted roster. Shows as 1.25× on your payslip.</div>
+          <div class="h-sub">Saturdays in your contracted roster. Shows as <strong>Ord Basic Pay @1.25</strong> on your payslip.</div>
           <div class="val-warn" id="satWarn">⚠ Saturday hours cannot exceed 140</div>
         </div>
         <div>
@@ -909,20 +945,64 @@
     </div>
   </div>
 
+  <!-- ── FROM YOUR LAST PAYSLIP ── -->
+  <div class="content-card">
+    <div class="card-header">
+      <h2>📋 From Your Last Payslip</h2>
+      <span class="hint">Optional — improves tax accuracy and tracks your HPP</span>
+    </div>
+    <div class="card-body">
+
+      <div class="field">
+        <label>Cumulative PAYE — Year to Date <span class="note">optional, improves tax accuracy</span></label>
+        <div style="display:flex;gap:8px;margin-bottom:6px">
+          <div style="flex:1">
+            <div style="font-size:var(--type-micro);font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Taxable Pay YTD</div>
+            <div class="pfx">
+              <span class="pfx-sym">£</span>
+              <input type="number" id="ytdPay" step="0.01" min="0" placeholder="0.00" inputmode="decimal">
+            </div>
+          </div>
+          <div style="flex:1">
+            <div style="font-size:var(--type-micro);font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Tax Paid YTD</div>
+            <div class="pfx">
+              <span class="pfx-sym">£</span>
+              <input type="number" id="ytdTax" step="0.01" min="0" placeholder="0.00" inputmode="decimal">
+            </div>
+          </div>
+        </div>
+        <div class="field-hint">From the Year-to-Date section of your last payslip — enter "Taxable Pay" and "Tax Paid". When filled in, the app uses HMRC's cumulative method for a more accurate tax estimate. Update each time you get a new payslip.</div>
+      </div>
+
+      <div class="field">
+        <label>January HPP Payment <span class="note">enter actual amount when received</span></label>
+        <div class="pfx">
+          <span class="pfx-sym">£</span>
+          <input type="number" id="hppActual" step="0.01" min="0" placeholder="0.00" inputmode="decimal">
+        </div>
+        <div class="field-hint">Once Chiltern pay your HPP in January, enter the actual figure from your payslip. The HPP card will show your confirmed amount instead of the estimate.</div>
+      </div>
+
+    </div>
+  </div>
+
   <!-- ── HOLIDAY PAY PREMIUM ESTIMATOR ── -->
   <div class="content-card">
     <div class="card-header">
-      <h2>🏖️ Holiday Pay Premium Estimate</h2>
-      <span class="hint">Your variable pay × 7.69% — paid each January</span>
+      <h2>🏖️ Holiday Pay Premium</h2>
+      <span class="hint">Variable pay × 7.69% — paid each January</span>
     </div>
     <div class="card-body">
-      <p class="card-explainer">HPP is a lump sum Chiltern pay each January. When you take annual leave you only receive your base rate — HPP compensates for the overtime and rest day pay you missed out on.</p>
+      <p class="card-explainer">HPP is a lump sum Chiltern pay each January. When you take annual leave you only receive your base rate — HPP compensates for the overtime and rest day pay you missed out on. <button class="disclaimer-toggle" id="hppBackPayLink">Expecting a pay rise? Calculate back pay →</button></p>
       <div class="hpp-result">
-        <div class="hpp-label">Estimated HPP for current year's data</div>
+        <div class="hpp-label" id="hppLabel">Estimated HPP for current year's data</div>
         <div class="hpp-amount" id="hppAmount">£–</div>
         <div class="hpp-basis" id="hppBasis">Enter hours across your periods above to calculate</div>
       </div>
-      <div class="card-note" id="hppNote"><strong>Formula (confirmed by Chiltern payroll):</strong> Total variable pay (overtime + rest day hours + London Allowance) × 4/52 = 7.69%. Excludes basic pay, peer training, expenses and bonuses. This estimate covers the <strong>tax year 2025/26</strong> — Chiltern will pay it in <strong>January 2027</strong>. Pro-rated if you were not employed for the full year. The amount is not in dispute; only the 8–21 month lag in payment timing.</div>
+      <button class="hpp-toggle-btn" id="hppToggleBtn">How is this calculated? <span class="hpp-toggle-arrow">▼</span></button>
+      <div class="hpp-note-body" id="hppNoteBody">
+        <div class="card-note" id="hppNote"></div>
+      </div>
     </div>
   </div>
 
@@ -960,9 +1040,17 @@
       </div>
       <!-- Total shown first — it's the headline figure (the lump sum on one payslip) -->
       <div class="hpp-result" id="backPayTotal" style="display:none">
-        <div class="hpp-label">💷 Lump sum on one payslip</div>
+        <div class="hpp-label" id="backPayTotalLabel">💷 Lump sum on one payslip</div>
         <div class="hpp-amount" id="backPayTotalAmt">£–</div>
         <div class="hpp-basis" id="backPayTotalBasis"></div>
+      </div>
+      <!-- Period selector — appears once total is calculated -->
+      <div class="field" id="backPayPeriodWrap" style="display:none;margin:0 0 12px">
+        <label>Paid in period</label>
+        <select id="backPayPeriod">
+          <option value="">— select when the lump sum will land —</option>
+        </select>
+        <div class="field-hint">Which payslip will carry the full lump sum? Select it to see a specific tax warning for that period.</div>
       </div>
       <div class="backpay-notice" id="backPayNotice" style="display:none">
         ⚠️ This lump sum is taxed in the period it is paid. If it pushes your income over a tax band threshold that month, you may receive less than the gross figure shown — check your payslip carefully.
@@ -1034,33 +1122,12 @@
         <div id="pensionWarn" class="val-warn" style="display:none">⚠ Pension contribution exceeds gross pay — check the amount</div>
       </div>
 
-      <div class="field">
-        <label>Cumulative PAYE — Year to Date <span class="note">optional, improves tax accuracy</span></label>
-        <div style="display:flex;gap:8px;margin-bottom:6px">
-          <div style="flex:1">
-            <div style="font-size:var(--type-micro);font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Taxable Pay YTD</div>
-            <div class="pfx">
-              <span class="pfx-sym">£</span>
-              <input type="number" id="ytdPay" step="0.01" min="0" placeholder="0.00" inputmode="decimal">
-            </div>
-          </div>
-          <div style="flex:1">
-            <div style="font-size:var(--type-micro);font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Tax Paid YTD</div>
-            <div class="pfx">
-              <span class="pfx-sym">£</span>
-              <input type="number" id="ytdTax" step="0.01" min="0" placeholder="0.00" inputmode="decimal">
-            </div>
-          </div>
-        </div>
-        <div class="field-hint">From the Year-to-Date section of your last payslip — enter "Taxable Pay" and "Tax Paid". When filled in the app uses HMRC's cumulative method for a more accurate tax estimate. Leave blank to keep per-period estimates. Update each time you get a new payslip.</div>
-      </div>
-
     </div>
   </div>
 
   <!-- DISCLAIMER -->
   <div class="disclaimer">
-    ⚠️ Estimate only — not financial or tax advice. Tax uses per-period estimates (÷13) unless you enter YTD figures from your payslip, which switches to HMRC's cumulative method. Actual PAYE may still differ due to employer rounding or corrections across prior periods. London Allowance is included automatically.
+    ⚠️ Estimate only — not financial or tax advice.<span class="disclaimer-extra" id="disclaimerExtra"> Tax uses per-period estimates (÷13) unless you enter YTD figures from your payslip, which switches to HMRC's cumulative method. Actual PAYE may still differ due to employer rounding or corrections across prior periods. London Allowance is included automatically.</span> <button class="disclaimer-toggle" id="disclaimerToggle">More ▼</button>
   </div>
 
   <div id="updateToast" role="status" aria-live="polite"></div>
@@ -1100,7 +1167,7 @@
 //     and the TAX / NI / SL threshold values below.
 //     P48 anchor (13 Feb 2026) stays fixed as the offset reference point.
 const CONFIG = {
-  APP_VERSION:    '0.99',
+  APP_VERSION:    '1.01',
   // Period arithmetic
   ANCHOR_DATE:    new Date(2026, 1, 13), // P48 payday: 13 Feb 2026 (fixed reference)
   PERIOD_DAYS:    28,
@@ -1163,7 +1230,7 @@ const SL_BY_YEAR = {
 const HPP_FRACTION = 4 / 52;
 
 // ── STORAGE KEYS ──────────────────────────────────────────────────────────────
-const SK = { rate:'cea_rate', code:'cea_code', sl:'cea_sl', pension:'cea_pension', setup:'cea_setup_done', ytdPay:'cea_ytd_pay', ytdTax:'cea_ytd_tax' };
+const SK = { rate:'cea_rate', code:'cea_code', sl:'cea_sl', pension:'cea_pension', setup:'cea_setup_done', ytdPay:'cea_ytd_pay', ytdTax:'cea_ytd_tax', hppActual:'cea_hpp_actual' };
 function periodKey(pNum) { return `cea_p${pNum}`; }
 
 // Period data schema — all fields that get saved per period
@@ -1280,6 +1347,31 @@ function buildPeriodSelect() {
 
   sel.value = defPNum;
   onPeriodChange();
+  buildBackPayPeriodSelect();
+}
+
+function buildBackPayPeriodSelect() {
+  const sel = document.getElementById('backPayPeriod');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— select when the lump sum will land —</option>';
+  const periods = getPeriods();
+  let currentGroup = null, currentTyLabel = null;
+  periods.forEach(p => {
+    const ty = getTaxYearForOffset(p.num - 48);
+    if (ty.label !== currentTyLabel) {
+      currentGroup = document.createElement('optgroup');
+      currentGroup.label = `Tax year ${ty.label}`;
+      sel.appendChild(currentGroup);
+      currentTyLabel = ty.label;
+    }
+    const o = document.createElement('option');
+    o.value = p.num;
+    const payStr = p.payday.toLocaleDateString('en-GB', {
+      day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/London'
+    });
+    o.textContent = `P${p.num} · Paid ${payStr}`;
+    currentGroup.appendChild(o);
+  });
 }
 
 function prevPeriod() {
@@ -1468,9 +1560,10 @@ function saveSettings() {
   localStorage.setItem(SK.code,    document.getElementById('taxCode').value);
   localStorage.setItem(SK.sl,      document.getElementById('studentLoan').value);
   localStorage.setItem(SK.pension, document.getElementById('pensionAmt').value);
-  localStorage.setItem(SK.ytdPay,  document.getElementById('ytdPay').value);
-  localStorage.setItem(SK.ytdTax,  document.getElementById('ytdTax').value);
-  localStorage.setItem(SK.setup,   '1'); // mark setup as done
+  localStorage.setItem(SK.ytdPay,    document.getElementById('ytdPay').value);
+  localStorage.setItem(SK.ytdTax,    document.getElementById('ytdTax').value);
+  localStorage.setItem(SK.hppActual, document.getElementById('hppActual').value);
+  localStorage.setItem(SK.setup,     '1'); // mark setup as done
   document.getElementById('setupBanner').classList.add('hidden');
   calculate();
 }
@@ -1489,6 +1582,8 @@ function loadSettings() {
   if (pension) document.getElementById('pensionAmt').value  = pension;
   if (ytdPay)  document.getElementById('ytdPay').value      = ytdPay;
   if (ytdTax)  document.getElementById('ytdTax').value      = ytdTax;
+  const hppActual = localStorage.getItem(SK.hppActual);
+  if (hppActual) document.getElementById('hppActual').value = hppActual;
   // Hide setup banner if settings already configured
   if (done) document.getElementById('setupBanner').classList.add('hidden');
 }
@@ -1763,16 +1858,25 @@ function calcHPP() {
   const hpp      = totalVar * HPP_FRACTION;
   const amountEl = document.getElementById('hppAmount');
   const basisEl  = document.getElementById('hppBasis');
+  const labelEl  = document.getElementById('hppLabel');
+  const actual   = numVal('hppActual');
 
-  if (pCount === 0) {
+  if (actual > 0) {
+    // Show confirmed actual figure
+    if (labelEl) labelEl.innerHTML = `HPP for tax year ${ty.label} <span class="actual-badge">✓ Actual</span>`;
+    amountEl.textContent = fmt(actual);
+    basisEl.textContent  = `Confirmed figure from your January ${ty.hppPaidJan} payslip`;
+  } else if (pCount === 0) {
+    if (labelEl) labelEl.textContent = 'Estimated HPP for current year\'s data';
     amountEl.textContent = '£–';
     basisEl.textContent  = 'Enter hours across your periods above to calculate';
   } else {
+    if (labelEl) labelEl.textContent = 'Estimated HPP for current year\'s data';
     amountEl.textContent = fmt(hpp);
     basisEl.textContent  = `${pCount} period${pCount > 1 ? 's' : ''} of ${ty.label} · ${fmt(totalVar)} variable pay × 7.69% (4/52)`;
   }
 
-  // Dynamic note — updates when tax year changes
+  // Dynamic formula note — updates when tax year changes
   const noteEl = document.getElementById('hppNote');
   if (noteEl) {
     noteEl.innerHTML = `<strong>Formula (confirmed by Chiltern payroll):</strong> Total variable pay (overtime + rest day hours + London Allowance) × 4/52 = 7.69%. Excludes basic pay, peer training, expenses and bonuses. This estimate covers the <strong>tax year ${ty.label}</strong> — Chiltern will pay it in <strong>January ${ty.hppPaidJan}</strong>. Pro-rated if you were not employed for the full year. The amount is not in dispute; only the 8–21 month lag in payment timing.`;
@@ -1815,12 +1919,17 @@ function calcBackPay() {
   const hasRate   = oldRate   > 0 && newRate   > 0 && newRate   > oldRate;
   const hasLondon = oldLondon > 0 && newLondon > 0 && newLondon > oldLondon;
 
+  const labelEl    = document.getElementById('backPayTotalLabel');
+  const periodWrap = document.getElementById('backPayPeriodWrap');
+  const bpSel      = document.getElementById('backPayPeriod');
+
   if (!hasRate && !hasLondon) {
     rowsEl.innerHTML = '';
     rowsEl.classList.remove('open');
-    totalEl.style.display = 'none';
-    noticeEl.style.display = 'none';
+    totalEl.style.display    = 'none';
+    noticeEl.style.display   = 'none';
     breakdownBtn.style.display = 'none';
+    if (periodWrap) periodWrap.style.display = 'none';
     return;
   }
 
@@ -1869,22 +1978,45 @@ function calcBackPay() {
   });
 
   if (grandTotal > 0) {
+    // Resolve the selected "paid in" period (if any)
+    const bpPNum = bpSel ? +bpSel.value : 0;
+    const bpP    = bpPNum ? getPeriods().find(x => x.num === bpPNum) : null;
+
     // Total is the headline — shown first
     totalEl.style.display = 'block';
     totalAmtEl.textContent = fmt(grandTotal);
+    if (labelEl) {
+      labelEl.textContent = bpP
+        ? `💷 Lump sum · Paid ${fdShort(bpP.payday)}`
+        : '💷 Lump sum on one payslip';
+    }
     const parts = [];
     if (hasRate)   parts.push(`rate ${fmt(oldRate)} → ${fmt(newRate)}`);
     if (hasLondon) parts.push(`London Allow ${fmt(oldLondon)} → ${fmt(newLondon)}`);
     totalBasEl.textContent = `${pCount} period${pCount > 1 ? 's' : ''} backdated · ${parts.join(' · ')}`;
-    // Tax caution
+
+    // Show period selector
+    if (periodWrap) periodWrap.style.display = 'block';
+
+    // Tax caution — specific if a period is selected, generic otherwise
     noticeEl.style.display = 'block';
+    if (bpP) {
+      const payLong = bpP.payday.toLocaleDateString('en-GB', {
+        day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/London'
+      });
+      noticeEl.innerHTML = `⚠️ This lump sum will appear on your <strong>P${bpP.num} payslip (paid ${payLong})</strong>. It is taxed in full in that period — if it pushes your income over a tax band threshold, you may receive less than the gross figure shown.`;
+    } else {
+      noticeEl.textContent = '⚠️ This lump sum is taxed in the period it is paid. Select a period above to see a specific warning. If it pushes your income over a tax band threshold that month, you may receive less than the gross figure shown.';
+    }
+
     // Per-period breakdown — collapsible, secondary
     rowsEl.innerHTML = rows;
     breakdownBtn.style.display = 'flex';
   } else {
-    totalEl.style.display = 'none';
-    noticeEl.style.display = 'none';
+    totalEl.style.display    = 'none';
+    noticeEl.style.display   = 'none';
     breakdownBtn.style.display = 'none';
+    if (periodWrap) periodWrap.style.display = 'none';
     rowsEl.innerHTML = '<p style="font-size:13px;color:var(--text-light);padding:8px 0">No saved periods found. Enter hours for each period first.</p>';
   }
 }
@@ -1892,6 +2024,24 @@ function calcBackPay() {
 function toggleBpBreakdown() {
   document.getElementById('bpBreakdownBtn').classList.toggle('open');
   document.getElementById('backPayRows').classList.toggle('open');
+}
+
+// ── HPP FORMULA NOTE TOGGLE ───────────────────────────────────────────────────
+function toggleHppNote() {
+  const btn  = document.getElementById('hppToggleBtn');
+  const body = document.getElementById('hppNoteBody');
+  const open = body.classList.toggle('open');
+  btn.classList.toggle('open', open);
+  btn.querySelector('.hpp-toggle-arrow').textContent = open ? '▲' : '▼';
+  btn.childNodes[0].textContent = open ? 'Hide calculation details ' : 'How is this calculated? ';
+}
+
+// ── DISCLAIMER TOGGLE ─────────────────────────────────────────────────────────
+function toggleDisclaimer() {
+  const extra  = document.getElementById('disclaimerExtra');
+  const toggle = document.getElementById('disclaimerToggle');
+  const open   = extra.classList.toggle('open');
+  toggle.textContent = open ? 'Less ▲' : 'More ▼';
 }
 
 // ── PEER STEPPER ──────────────────────────────────────────────────────────────
@@ -1943,17 +2093,26 @@ document.getElementById('peerPlus').addEventListener('click',  () => stepPeer(1)
   document.getElementById(id).addEventListener('input', calcBackPay);
 });
 
-// Back-pay toggle
+// Back-pay toggle + period selector
 document.getElementById('backPayToggle').addEventListener('click', toggleBackPay);
 document.getElementById('bpBreakdownBtn').addEventListener('click', toggleBpBreakdown);
+document.getElementById('backPayPeriod').addEventListener('change', calcBackPay);
 
 // Settings
 document.getElementById('hourlyRate').addEventListener('input',  () => { saveSettings(); calculate(); });
 document.getElementById('taxCode').addEventListener('input',     () => { saveSettings(); calculate(); });
 document.getElementById('studentLoan').addEventListener('change',() => { saveSettings(); calculate(); });
 document.getElementById('pensionAmt').addEventListener('input',  () => { saveSettings(); calculate(); });
-document.getElementById('ytdPay').addEventListener('input',      () => { saveSettings(); calculate(); });
-document.getElementById('ytdTax').addEventListener('input',      () => { saveSettings(); calculate(); });
+document.getElementById('ytdPay').addEventListener('input',       () => { saveSettings(); calculate(); });
+document.getElementById('ytdTax').addEventListener('input',       () => { saveSettings(); calculate(); });
+document.getElementById('hppActual').addEventListener('input',    () => { saveSettings(); calcHPP(); });
+document.getElementById('hppToggleBtn').addEventListener('click',  toggleHppNote);
+document.getElementById('disclaimerToggle').addEventListener('click', toggleDisclaimer);
+document.getElementById('hppBackPayLink').addEventListener('click', () => {
+  const card = document.getElementById('backPayCard');
+  if (card.style.display === 'none') toggleBackPay();
+  card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
 
 // Dismiss splash after first render
 const _splash = document.getElementById('splash');
