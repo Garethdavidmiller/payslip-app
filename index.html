@@ -653,7 +653,17 @@
         page-break-inside: avoid !important;
         margin-bottom: 10px !important;
       }
-      .hhmm-wrap, .stepper { display: none !important; }
+      .hhmm-wrap { display: flex !important; }
+      .hhmm-field input {
+        border: none !important; background: transparent !important;
+        padding: 0 !important; font-weight: 700 !important;
+        font-size: 13px !important; width: 2.5ch !important;
+        min-width: 0 !important;
+      }
+      .hhmm-lbl { font-size: 10px !important; color: var(--text-light) !important; }
+      .stepper { display: flex !important; align-items: center !important; }
+      .stepper button { display: none !important; }
+      .stepper-val { font-weight: 700 !important; font-size: 13px !important; }
       .disclaimer {
         box-shadow: none !important; font-size: 10px !important;
         border-left: 3px solid var(--primary-blue) !important;
@@ -792,7 +802,7 @@
       <div class="field">
         <label>Tax Code</label>
         <input type="text" id="taxCode" value="1257L" placeholder="e.g. 1257L" style="text-transform:uppercase">
-        <div class="field-hint">Most people are 1257L. Check your payslip or P60. An incorrect code will affect the tax estimate.</div>
+        <div class="field-hint">Most people are 1257L. Check your payslip or P60.</div>
       </div>
 
       <div class="field">
@@ -1206,7 +1216,7 @@
 //     and the TAX / NI / SL threshold values below.
 //     P48 anchor (13 Feb 2026) stays fixed as the offset reference point.
 const CONFIG = {
-  APP_VERSION:    '1.06',
+  APP_VERSION:    '1.09',
   // Period arithmetic
   ANCHOR_DATE:    new Date(2026, 1, 13), // P48 payday: 13 Feb 2026 (fixed reference)
   PERIOD_DAYS:    28,
@@ -1257,12 +1267,36 @@ const SL_BY_YEAR = {
     postgrad:{ t: 21000/P_YR, r: 0.06 },
   },
   '2026/27': {
-    plan1:   { t: 26065/P_YR, r: 0.09 }, // confirmed HMRC
-    plan2:   { t: 28470/P_YR, r: 0.09 }, // confirmed HMRC
-    plan4:   { t: 32745/P_YR, r: 0.09 }, // confirmed HMRC (Scotland)
+    plan1:   { t: 26900/P_YR, r: 0.09 }, // HMRC SL guidance Apr 2026
+    plan2:   { t: 29385/P_YR, r: 0.09 }, // HMRC SL guidance Apr 2026
+    plan4:   { t: 33795/P_YR, r: 0.09 }, // HMRC SL guidance Apr 2026 (Scotland)
     plan5:   { t: 25000/P_YR, r: 0.09 }, // unchanged
     postgrad:{ t: 21000/P_YR, r: 0.06 }, // unchanged
   },
+};
+
+// Scottish income tax bands (Holyrood-set). Bands are stored as per-period
+// TAXABLE income tops (i.e. total income threshold minus PA, divided by P_YR).
+// PA is still set by Westminster (£12,570 both years).
+// Source: gov.scot Scottish Income Tax factsheets 2025/26 and 2026/27.
+// ⚠️ Update each year — especially starter and basic tops which Holyrood adjusts annually.
+const SCOTTISH_TAX_BY_YEAR = {
+  '2025/26': { pa: 12570/P_YR, bands: [
+    { top:  2827/P_YR, rate: 0.19 }, // Starter  19%  £12,571–£15,397
+    { top: 14921/P_YR, rate: 0.20 }, // Basic    20%  £15,397–£27,491
+    { top: 31092/P_YR, rate: 0.21 }, // Intermediate 21%  £27,491–£43,662
+    { top: 62430/P_YR, rate: 0.42 }, // Higher   42%  £43,662–£75,000
+    { top: 112570/P_YR, rate: 0.45 }, // Advanced 45%  £75,000–£125,140
+    { top: Infinity,   rate: 0.48 }, // Top      48%  over £125,140
+  ]},
+  '2026/27': { pa: 12570/P_YR, bands: [
+    { top:  3967/P_YR, rate: 0.19 }, // Starter  19%  £12,571–£16,537
+    { top: 16956/P_YR, rate: 0.20 }, // Basic    20%  £16,537–£29,526
+    { top: 31092/P_YR, rate: 0.21 }, // Intermediate 21%  £29,526–£43,662
+    { top: 62430/P_YR, rate: 0.42 }, // Higher   42%  £43,662–£75,000
+    { top: 112570/P_YR, rate: 0.45 }, // Advanced 45%  £75,000–£125,140
+    { top: Infinity,   rate: 0.48 }, // Top      48%  over £125,140
+  ]},
 };
 
 // HPP: (Gross − Basic) × 4/52 — confirmed by Marie Firby, Chiltern payroll
@@ -1345,11 +1379,31 @@ function getTaxYearForOffset(offset) {
 function getThresholds(yearLabel) {
   const ty = CONFIG.TAX_YEARS.find(t => t.label === yearLabel) || CONFIG.TAX_YEARS[0];
   return {
-    tax:         TAX_BY_YEAR[yearLabel]  || TAX_BY_YEAR['2025/26'],
-    ni:          NI_BY_YEAR[yearLabel]   || NI_BY_YEAR['2025/26'],
-    sl:          SL_BY_YEAR[yearLabel]   || SL_BY_YEAR['2025/26'],
+    tax:         TAX_BY_YEAR[yearLabel]          || TAX_BY_YEAR['2025/26'],
+    scottishTax: SCOTTISH_TAX_BY_YEAR[yearLabel] || SCOTTISH_TAX_BY_YEAR['2025/26'],
+    ni:          NI_BY_YEAR[yearLabel]           || NI_BY_YEAR['2025/26'],
+    sl:          SL_BY_YEAR[yearLabel]           || SL_BY_YEAR['2025/26'],
     londonAllow: ty.londonAllow,
   };
+}
+
+/**
+ * Apply progressive tax bands to a taxable amount.
+ * @param {number} taxable - Taxable income (already after personal allowance).
+ * @param {Array<{top: number, rate: number}>} bands - Bands with cumulative taxable tops.
+ * @param {number} [scale=1] - Multiply all tops by this factor (for cumulative PAYE with N periods).
+ * @returns {number} Tax due.
+ */
+function calcBandedTax(taxable, bands, scale = 1) {
+  let tax = 0, prev = 0;
+  for (const band of bands) {
+    if (taxable <= prev) break;
+    const top   = band.top === Infinity ? Infinity : band.top * scale;
+    const slice = Math.min(taxable, top) - prev;
+    tax += slice * band.rate;
+    prev = top;
+  }
+  return tax;
 }
 
 // ── PERIOD SELECT ─────────────────────────────────────────────────────────────
@@ -1656,7 +1710,7 @@ function calculate() {
   const _pNum   = currentPeriodNum();
   const _curP   = getPeriods().find(x => x.num === _pNum);
   const _ty     = _curP ? getTaxYearForOffset(_curP.num - 48) : CONFIG.TAX_YEARS[0];
-  const { tax: TAX, ni: NI, sl: SL, londonAllow: LONDON } = getThresholds(_ty.label);
+  const { tax: TAX, scottishTax: SCOT, ni: NI, sl: SL, londonAllow: LONDON } = getThresholds(_ty.label);
 
   const rate = numVal('hourlyRate') || 20.74;
   updateBadges(rate);
@@ -1701,43 +1755,46 @@ function calculate() {
   const sacGross   = Math.max(0, gross - pension); // clamped — pension cannot exceed gross
 
   // Income Tax (on sacGross, not gross)
-  // Supports: nL, BR, D0, D1, NT, 0T, Kn, S/C prefix, W1/M1/X suffix
-  const rawCode = (document.getElementById('taxCode').value || '1257L').toUpperCase().replace(/\s+/g, '');
-  const isNonCum = /[WM]1$|X$/.test(rawCode); // W1/M1/X: non-cumulative basis (same calc, noted in disclaimer)
-  const baseCode = rawCode.replace(/[WM]1$|X$/, '');
+  // Supports: nL, BR, D0, D1, NT, 0T, Kn, W1/M1/X suffix, S prefix (Scottish)
+  const rawCode   = (document.getElementById('taxCode').value || '1257L').toUpperCase().replace(/\s+/g, '');
+  const isNonCum  = /[WM]1$|X$/.test(rawCode);
+  const baseCode  = rawCode.replace(/[WM]1$|X$/, '');
+  const isScottish = /^S/.test(baseCode); // S-prefix → apply Holyrood bands
   let tax = 0;
   if (baseCode === 'NT') {
-    tax = 0; // No tax
-  } else if (baseCode === 'BR') {
-    tax = sacGross * TAX.r20; // All at basic rate — common for second jobs
-  } else if (baseCode === 'D0') {
-    tax = sacGross * TAX.r40; // All at higher rate
-  } else if (baseCode === 'D1') {
-    tax = sacGross * TAX.r45; // All at additional rate
+    tax = 0;
+  } else if (baseCode === 'BR' || baseCode === 'SBR') {
+    tax = sacGross * (isScottish ? SCOT.bands[1].rate : TAX.r20); // basic rate (20% both)
+  } else if (baseCode === 'D0' || baseCode === 'SD0') {
+    tax = sacGross * (isScottish ? 0.42 : TAX.r40); // higher rate (42% Scotland, 40% rUK)
+  } else if (baseCode === 'D1' || baseCode === 'SD1') {
+    tax = sacGross * (isScottish ? 0.48 : TAX.r45); // top/additional rate (48% Scotland, 45% rUK)
   } else {
     // Banded calculation — resolve personal allowance first
-    let pa = TAX.pa; // default: standard allowance (e.g. 1257L → £12,570 ÷ 13)
-    if (baseCode === '0T') {
-      pa = 0; // Emergency / no allowance
+    let pa = (isScottish ? SCOT : TAX).pa; // standard allowance per period
+    if (baseCode === '0T' || baseCode === 'S0T') {
+      pa = 0;
     } else {
-      // K codes: negative allowance (benefits in kind, overpaid tax credits, etc.)
       const km = baseCode.match(/^[SC]?K(\d+)$/);
       if (km) {
-        pa = -(parseInt(km[1]) * 10 / P_YR); // adds to taxable pay
+        pa = -(parseInt(km[1]) * 10 / P_YR); // K code: negative allowance
       } else {
-        // Standard nL codes (with optional S/C prefix for Scottish/Welsh taxpayers)
         const nm = baseCode.match(/^[SC]?(\d+)L$/);
         if (nm) pa = parseInt(nm[1]) * 10 / P_YR;
-        // else: unrecognised code — fall back to standard allowance
+        // else: unrecognised code — falls back to standard allowance
       }
     }
-    // Apply bands. For K codes pa is negative, so taxable = sacGross + |K_amount|
-    const taxable   = Math.max(0, sacGross - pa);
-    const basicBand = Math.max(0, TAX.b - Math.max(0, pa)); // band unchanged for K codes
-    const highBand  = Math.max(0, TAX.h - TAX.b);
-    if      (taxable <= basicBand)            tax = taxable * TAX.r20;
-    else if (taxable <= basicBand + highBand) tax = basicBand * TAX.r20 + (taxable - basicBand) * TAX.r40;
-    else                                       tax = basicBand * TAX.r20 + highBand * TAX.r40 + (taxable - basicBand - highBand) * TAX.r45;
+    // taxable = sacGross minus allowance (K codes: pa is negative, so taxable grows)
+    const taxable = Math.max(0, sacGross - pa);
+    if (isScottish) {
+      tax = calcBandedTax(taxable, SCOT.bands);
+    } else {
+      const basicBand = Math.max(0, TAX.b - Math.max(0, pa));
+      const highBand  = Math.max(0, TAX.h - TAX.b);
+      if      (taxable <= basicBand)            tax = taxable * TAX.r20;
+      else if (taxable <= basicBand + highBand) tax = basicBand * TAX.r20 + (taxable - basicBand) * TAX.r40;
+      else                                      tax = basicBand * TAX.r20 + highBand * TAX.r40 + (taxable - basicBand - highBand) * TAX.r45;
+    }
   }
 
   // ── CUMULATIVE PAYE ───────────────────────────────────────────────────────────
@@ -1753,9 +1810,9 @@ function calculate() {
     const N = (_curP.num - 48) - _ty.first + 1; // HMRC 4-weekly period number (1–13)
     const cumGross = ytdP + sacGross;
 
-    // Resolve per-period PA using the same code-matching logic above, then scale to N periods
-    let paPerPeriod = TAX.pa;
-    if (baseCode === '0T') {
+    // Resolve per-period PA — same logic as above, then scale to N periods
+    let paPerPeriod = (isScottish ? SCOT : TAX).pa;
+    if (baseCode === '0T' || baseCode === 'S0T') {
       paPerPeriod = 0;
     } else {
       const km = baseCode.match(/^[SC]?K(\d+)$/);
@@ -1766,21 +1823,24 @@ function calculate() {
         if (nm) paPerPeriod = parseInt(nm[1]) * 10 / P_YR;
       }
     }
-    const cumPa       = paPerPeriod * N;
-    const cumBasicTop = TAX.b * N;
-    const cumHighTop  = TAX.h * N;
+    const cumPa      = paPerPeriod * N;
+    const cumTaxable = Math.max(0, cumGross - cumPa);
 
     let cumTaxDue = 0;
     if (baseCode === 'NT') {
       cumTaxDue = 0;
-    } else if (baseCode === 'BR') {
-      cumTaxDue = cumGross * TAX.r20;
-    } else if (baseCode === 'D0') {
-      cumTaxDue = cumGross * TAX.r40;
-    } else if (baseCode === 'D1') {
-      cumTaxDue = cumGross * TAX.r45;
+    } else if (baseCode === 'BR' || baseCode === 'SBR') {
+      cumTaxDue = cumGross * (isScottish ? SCOT.bands[1].rate : TAX.r20);
+    } else if (baseCode === 'D0' || baseCode === 'SD0') {
+      cumTaxDue = cumGross * (isScottish ? 0.42 : TAX.r40);
+    } else if (baseCode === 'D1' || baseCode === 'SD1') {
+      cumTaxDue = cumGross * (isScottish ? 0.48 : TAX.r45);
+    } else if (isScottish) {
+      // Scottish cumulative: scale each band top by N periods
+      cumTaxDue = calcBandedTax(cumTaxable, SCOT.bands, N);
     } else {
-      const cumTaxable  = Math.max(0, cumGross - cumPa);
+      const cumBasicTop = TAX.b * N;
+      const cumHighTop  = TAX.h * N;
       const cumBasicBnd = Math.max(0, cumBasicTop - Math.max(0, cumPa));
       const cumHighBnd  = Math.max(0, cumHighTop - cumBasicTop);
       if (cumTaxable <= cumBasicBnd) {
