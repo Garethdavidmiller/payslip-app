@@ -653,7 +653,17 @@
         page-break-inside: avoid !important;
         margin-bottom: 10px !important;
       }
-      .hhmm-wrap, .stepper { display: none !important; }
+      .hhmm-wrap { display: flex !important; }
+      .hhmm-field input {
+        border: none !important; background: transparent !important;
+        padding: 0 !important; font-weight: 700 !important;
+        font-size: 13px !important; width: 2.5ch !important;
+        min-width: 0 !important;
+      }
+      .hhmm-lbl { font-size: 10px !important; color: var(--text-light) !important; }
+      .stepper { display: flex !important; align-items: center !important; }
+      .stepper button { display: none !important; }
+      .stepper-val { font-weight: 700 !important; font-size: 13px !important; }
       .disclaimer {
         box-shadow: none !important; font-size: 10px !important;
         border-left: 3px solid var(--primary-blue) !important;
@@ -792,7 +802,7 @@
       <div class="field">
         <label>Tax Code</label>
         <input type="text" id="taxCode" value="1257L" placeholder="e.g. 1257L" style="text-transform:uppercase">
-        <div class="field-hint">Most people are 1257L. Check your payslip or P60. An incorrect code will affect the tax estimate.</div>
+        <div class="field-hint">Most people are 1257L. Check your payslip or P60. An incorrect code will affect the tax estimate. Note: Scottish tax codes (S prefix, e.g. S1257L) are accepted but this app uses standard England/Wales tax bands — the estimate will not be accurate for Scottish taxpayers.</div>
       </div>
 
       <div class="field">
@@ -1206,7 +1216,7 @@
 //     and the TAX / NI / SL threshold values below.
 //     P48 anchor (13 Feb 2026) stays fixed as the offset reference point.
 const CONFIG = {
-  APP_VERSION:    '1.06',
+  APP_VERSION:    '1.07',
   // Period arithmetic
   ANCHOR_DATE:    new Date(2026, 1, 13), // P48 payday: 13 Feb 2026 (fixed reference)
   PERIOD_DAYS:    28,
@@ -1257,9 +1267,9 @@ const SL_BY_YEAR = {
     postgrad:{ t: 21000/P_YR, r: 0.06 },
   },
   '2026/27': {
-    plan1:   { t: 26065/P_YR, r: 0.09 }, // confirmed HMRC
-    plan2:   { t: 28470/P_YR, r: 0.09 }, // confirmed HMRC
-    plan4:   { t: 32745/P_YR, r: 0.09 }, // confirmed HMRC (Scotland)
+    plan1:   { t: 26900/P_YR, r: 0.09 }, // HMRC SL guidance Apr 2026
+    plan2:   { t: 29385/P_YR, r: 0.09 }, // HMRC SL guidance Apr 2026
+    plan4:   { t: 33795/P_YR, r: 0.09 }, // HMRC SL guidance Apr 2026 (Scotland)
     plan5:   { t: 25000/P_YR, r: 0.09 }, // unchanged
     postgrad:{ t: 21000/P_YR, r: 0.06 }, // unchanged
   },
