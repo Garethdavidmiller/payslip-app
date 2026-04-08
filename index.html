@@ -1280,14 +1280,7 @@
         <div class="field-hint">Find these in the <strong>Year to Date</strong> box on your payslip — copy "Taxable Pay" and "Tax Paid" across. The app will use them to give a more accurate tax figure. Update whenever you get a new payslip.</div>
       </div>
 
-      <div class="field">
-        <label>Holiday Pay Premium (HPP) received in January <span class="note">optional</span></label>
-        <div class="pfx">
-          <span class="pfx-sym">£</span>
-          <input type="number" id="hppActual" step="0.01" min="0" placeholder="0.00" inputmode="decimal">
-        </div>
-        <div class="field-hint">Once Chiltern pay your Holiday Pay Premium (HPP) in January, enter the actual figure from your payslip here. The estimate below will be replaced with your confirmed amount.</div>
-      </div>
+      <div class="field-hint" style="padding-top:4px">Once your January payslip arrives with the HPP lump sum, enter the confirmed figure in the <strong>Holiday Pay Premium</strong> card below — it will replace the running estimate there.</div>
 
     </div>
   </div>
@@ -1305,6 +1298,30 @@
       </div>
     </div>
     <div class="card-body collapsible-body" id="hppCardBody">
+
+      <!-- Prior year HPP — hidden when viewing the first tax year (no prior year exists) -->
+      <div id="priorHppSection" class="hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
+          <span style="font-size:13px;font-weight:700;color:var(--text-dark)" id="priorHppTitle">2025/26 Holiday Pay Premium</span>
+          <span class="period-badge hidden" id="priorHppDueBadge" style="background:var(--accent-gold);color:var(--primary-blue)">Due this January</span>
+        </div>
+        <div class="hpp-result">
+          <div class="hpp-label" id="priorHppAmtLabel">ESTIMATED</div>
+          <div class="hpp-amount" id="priorHppAmt">£–</div>
+          <div class="hpp-basis" id="priorHppBasis"></div>
+        </div>
+        <div class="field" style="margin-bottom:12px">
+          <label>Confirmed amount from your January payslip <span class="note">enter when payslip arrives</span></label>
+          <div class="pfx">
+            <span class="pfx-sym">£</span>
+            <input type="number" id="priorHppActualInput" step="0.01" min="0" placeholder="0.00" inputmode="decimal">
+          </div>
+          <div class="field-hint">Enter the HPP lump sum from your January payslip to replace the estimate above.</div>
+        </div>
+        <div style="border-top:1px solid var(--border-light);margin-bottom:10px"></div>
+        <div style="font-size:13px;font-weight:700;color:var(--text-mid);margin-bottom:4px" id="currentHppTitle">This year (2026/27)</div>
+      </div>
+
       <p class="card-explainer">When you take annual leave, Chiltern only pay your basic rate — you miss out on overtime and rest day pay. To make up for this, they calculate a <strong>Holiday Pay Premium (HPP)</strong> and pay it as a lump sum every January. <button class="disclaimer-toggle" id="hppBackPayLink">Expecting a pay rise? Calculate back pay →</button></p>
       <div class="hpp-result">
         <div class="hpp-label" id="hppLabel">Estimated Holiday Pay Premium for this tax year</div>
@@ -1453,7 +1470,7 @@
 //     and the TAX / NI / SL threshold values below.
 //     P48 anchor (13 Feb 2026) stays fixed as the offset reference point.
 const CONFIG = {
-  APP_VERSION:    '1.17',
+  APP_VERSION:    '1.18',
   // Period arithmetic
   ANCHOR_DATE:    new Date(2026, 1, 13), // P48 payday: 13 Feb 2026 (fixed reference)
   PERIOD_DAYS:    28,
@@ -1549,9 +1566,15 @@ const GRADES = {
 };
 
 // ── STORAGE KEYS ──────────────────────────────────────────────────────────────
-const SK = { rate:'cea_rate', rates:'cea_rates', code:'cea_code', sl:'cea_sl', pension:'cea_pension', setup:'cea_setup_done', ytdPay:'cea_ytd_pay', ytdTax:'cea_ytd_tax', hppActual:'cea_hpp_actual', grade:'cea_grade' };
+const SK = { rate:'cea_rate', rates:'cea_rates', code:'cea_code', sl:'cea_sl', pension:'cea_pension', setup:'cea_setup_done', ytdPay:'cea_ytd_pay', ytdTax:'cea_ytd_tax', grade:'cea_grade' };
 // cea_rates is a JSON object: { '2025/26': 20.74, '2026/27': 21.50 }
 // Separate rate per tax year so updating for a pay award doesn't distort historical periods.
+
+// Per-tax-year HPP storage — keyed by tax year label so prior-year data survives TY rollover.
+// cea_hpp_est_2025_26  — running/final estimate, written on every calcHPP() call
+// cea_hpp_actual_2025_26 — confirmed amount from January payslip, written by user
+function hppEstKey(ty)    { return `cea_hpp_est_${ty.label.replace('/', '_')}`; }
+function hppActualKey(ty) { return `cea_hpp_actual_${ty.label.replace('/', '_')}`; }
 
 // Session-level tracker — prevents Settings card from auto-opening more than once per tax year
 // per browser session. Cleared on page reload. Uses tax year label as the key.
@@ -1597,7 +1620,7 @@ const HELP_CONTENT = {
       'When you take annual leave, Chiltern only pay your <strong>basic contracted rate</strong> — you miss out on overtime, rest day pay, and Sunday pay for those days.',
       'To compensate, Chiltern calculate a <strong>Holiday Pay Premium of 7.69%</strong> of your variable pay (overtime, RDW, Sundays, London Allowance) across the whole tax year.',
       'This is paid as a <strong>single lump sum in your January payslip</strong> every year — it doesn\'t appear on any other payslip.',
-      'The estimate here totals your variable pay across all periods you\'ve entered in the current tax year. Once January arrives, enter the confirmed figure under Improve Accuracy.',
+      'The estimate builds across all periods you\'ve entered in the current tax year. When you move into the next tax year, the prior year\'s estimate carries forward into this card — enter the confirmed January payslip figure there to replace it.',
     ],
   },
   backpay: {
@@ -2116,7 +2139,6 @@ function saveSettings() {
   localStorage.setItem(SK.pension,   document.getElementById('pensionAmt').value);
   localStorage.setItem(SK.ytdPay,    document.getElementById('ytdPay').value);
   localStorage.setItem(SK.ytdTax,    document.getElementById('ytdTax').value);
-  localStorage.setItem(SK.hppActual, document.getElementById('hppActual').value);
   localStorage.setItem(SK.grade,     document.getElementById('gradeSelect').value);
 }
 
@@ -2170,15 +2192,11 @@ function loadSettings() {
   if (pension) document.getElementById('pensionAmt').value  = pension;
   if (ytdPay)  document.getElementById('ytdPay').value      = ytdPay;
   if (ytdTax)  document.getElementById('ytdTax').value      = ytdTax;
-  const hppActual = localStorage.getItem(SK.hppActual);
-  if (hppActual) document.getElementById('hppActual').value = hppActual;
   const grade = localStorage.getItem(SK.grade);
   if (grade) document.getElementById('gradeSelect').value = grade;
   // On repeat visits: hide banner and collapse Settings
   if (done) {
-    // Migration for users who confirmed settings before per-tax-year tracking was added (v1.13).
-    // If the global SK.setup flag is set but no per-tax-year keys exist, mark all years confirmed
-    // now so they aren't asked to re-confirm on every period change.
+    // Migration: mark all tax years confirmed if global setup flag already set (v1.13+)
     CONFIG.TAX_YEARS.forEach(ty => {
       if (!localStorage.getItem(settingsKey(ty))) {
         localStorage.setItem(settingsKey(ty), '1');
@@ -2186,6 +2204,15 @@ function loadSettings() {
     });
     document.getElementById('settingsToggle').classList.remove('open');
     document.getElementById('settingsBody').classList.remove('open');
+  }
+  // Migration: copy legacy global hppActual (cea_hpp_actual) to per-year key if needed
+  const legacyHppActual = localStorage.getItem('cea_hpp_actual');
+  if (legacyHppActual) {
+    const firstTy = CONFIG.TAX_YEARS[0];
+    if (!localStorage.getItem(hppActualKey(firstTy))) {
+      localStorage.setItem(hppActualKey(firstTy), legacyHppActual);
+    }
+    localStorage.removeItem('cea_hpp_actual');
   }
 }
 
@@ -2482,28 +2509,93 @@ function calcHPP() {
   const amountEl = document.getElementById('hppAmount');
   const basisEl  = document.getElementById('hppBasis');
   const labelEl  = document.getElementById('hppLabel');
-  const actual   = numVal('hppActual');
 
-  if (actual > 0) {
-    // Show confirmed actual figure
-    if (labelEl) labelEl.innerHTML = `Holiday pay bonus for tax year ${ty.label} <span class="actual-badge">✓ Actual</span>`;
-    amountEl.textContent = fmt(actual);
-    basisEl.textContent  = `Confirmed figure from your January ${ty.hppPaidJan} payslip`;
-  } else if (pCount === 0) {
-    if (labelEl) labelEl.textContent = 'Estimated Holiday Pay Premium for this tax year';
+  // Persist the running estimate so it survives when the user moves to the next tax year.
+  // The prior year section reads this key to show the carry-forward amount.
+  if (hpp > 0) localStorage.setItem(hppEstKey(ty), hpp.toFixed(2));
+
+  // Current year always shows the estimate (the confirmed actual lives in the prior year section
+  // once the user has moved to the following tax year).
+  if (pCount === 0) {
+    if (labelEl) labelEl.textContent = `Estimated ${ty.label} Holiday Pay Premium`;
     amountEl.textContent = '£–';
     basisEl.textContent  = 'Enter hours across your periods above to calculate';
   } else {
-    if (labelEl) labelEl.textContent = 'Estimated Holiday Pay Premium for this tax year';
+    if (labelEl) labelEl.textContent = `Estimated ${ty.label} Holiday Pay Premium`;
     amountEl.textContent = fmt(hpp);
-    basisEl.textContent  = `${pCount} period${pCount > 1 ? 's' : ''} of ${ty.label} · ${fmt(totalVar)} variable pay × 7.69% (4/52)`;
+    basisEl.textContent  = `${pCount} period${pCount > 1 ? 's' : ''} of ${ty.label} · ${fmt(totalVar)} variable pay × 7.69% · due January ${ty.hppPaidJan}`;
   }
 
-  // Dynamic formula note — updates when tax year changes
+  // Dynamic formula note
   const noteEl = document.getElementById('hppNote');
   if (noteEl) {
     noteEl.innerHTML = `<strong>How it's calculated (confirmed by Chiltern payroll):</strong> All variable pay (overtime + rest day hours + London Allowance) × 4/52 = 7.69%. Basic pay, peer training, expenses and bonuses are excluded. This estimate covers the <strong>tax year ${ty.label}</strong> — Chiltern will pay it in <strong>January ${ty.hppPaidJan}</strong>. It's pro-rated if you were not employed for the full year.`;
   }
+
+  // Update the prior year section (shows the previous tax year's HPP carry-forward)
+  updatePriorHpp(ty);
+}
+
+// ── PRIOR YEAR HPP SECTION ───────────────────────────────────────────────────
+// Shows the previous tax year's HPP estimate (or confirmed actual) in the HPP card.
+// Called at the end of calcHPP() so it refreshes whenever the main calculation runs.
+function updatePriorHpp(ty) {
+  const section = document.getElementById('priorHppSection');
+  if (!section) return;
+
+  const tyIdx = CONFIG.TAX_YEARS.findIndex(t => t.label === ty.label);
+  if (tyIdx <= 0) {
+    section.classList.add('hidden');
+    return;
+  }
+
+  const priorTy   = CONFIG.TAX_YEARS[tyIdx - 1];
+  const estRaw    = localStorage.getItem(hppEstKey(priorTy));
+  const actualRaw = localStorage.getItem(hppActualKey(priorTy));
+  const est       = estRaw    ? parseFloat(estRaw)    : 0;
+  const actual    = actualRaw ? parseFloat(actualRaw) : 0;
+
+  // Is the current period's payday in the January when prior-year HPP is paid?
+  const pNum = currentPeriodNum();
+  const curP = getPeriods().find(x => x.num === pNum);
+  const isJanPayday = curP &&
+    curP.payday.getFullYear() === priorTy.hppPaidJan &&
+    curP.payday.getMonth() === 0;
+
+  document.getElementById('priorHppTitle').textContent      = `${priorTy.label} Holiday Pay Premium`;
+  document.getElementById('currentHppTitle').textContent    = `This year (${ty.label})`;
+
+  const dueBadge = document.getElementById('priorHppDueBadge');
+  dueBadge.classList.toggle('hidden', !isJanPayday || actual > 0);
+
+  const amtLabel = document.getElementById('priorHppAmtLabel');
+  const amtEl    = document.getElementById('priorHppAmt');
+  const basisEl  = document.getElementById('priorHppBasis');
+
+  if (actual > 0) {
+    amtLabel.innerHTML  = `${priorTy.label} HPP <span class="actual-badge">✓ Confirmed</span>`;
+    amtEl.textContent   = `£${actual.toFixed(2)}`;
+    basisEl.textContent = `Confirmed from your January ${priorTy.hppPaidJan} payslip`;
+  } else if (est > 0) {
+    amtLabel.textContent = isJanPayday ? 'Expected on this payslip' : 'Estimated';
+    amtEl.textContent    = `£${est.toFixed(2)}`;
+    basisEl.textContent  = isJanPayday
+      ? `Check your January ${priorTy.hppPaidJan} payslip and enter the confirmed amount below`
+      : `Estimated from your ${priorTy.label} periods · due January ${priorTy.hppPaidJan}`;
+  } else {
+    amtLabel.textContent = 'Estimated';
+    amtEl.textContent    = '£–';
+    basisEl.textContent  = `No ${priorTy.label} variable pay recorded — check your January ${priorTy.hppPaidJan} payslip`;
+  }
+
+  // Load stored actual into the input — only update if it differs to avoid disrupting typing
+  const input = document.getElementById('priorHppActualInput');
+  if (input) {
+    const stored = actualRaw || '';
+    if (document.activeElement !== input) input.value = stored;
+  }
+
+  section.classList.remove('hidden');
 }
 
 // ── CARD COLLAPSE TOGGLES ─────────────────────────────────────────────────────
@@ -2814,7 +2906,23 @@ document.getElementById('otherAdj').addEventListener('input', autosave);
 // Payslip card inputs
 document.getElementById('ytdPay').addEventListener('input',    () => { saveSettings(); calculate(); });
 document.getElementById('ytdTax').addEventListener('input',    () => { saveSettings(); calculate(); });
-document.getElementById('hppActual').addEventListener('input', () => { saveSettings(); calcHPP(); });
+
+// Prior year HPP actual — saves to per-year key and refreshes the prior HPP section display
+document.getElementById('priorHppActualInput').addEventListener('input', () => {
+  const pNum  = currentPeriodNum();
+  const curP  = getPeriods().find(x => x.num === pNum);
+  const curTy = curP ? getTaxYearForOffset(curP.num - 48) : CONFIG.TAX_YEARS[0];
+  const tyIdx = CONFIG.TAX_YEARS.findIndex(t => t.label === curTy.label);
+  if (tyIdx <= 0) return;
+  const priorTy = CONFIG.TAX_YEARS[tyIdx - 1];
+  const val = document.getElementById('priorHppActualInput').value;
+  if (val) {
+    localStorage.setItem(hppActualKey(priorTy), val);
+  } else {
+    localStorage.removeItem(hppActualKey(priorTy));
+  }
+  updatePriorHpp(curTy);
+});
 
 // HPP formula toggle + disclaimer + back-pay cross-link
 document.getElementById('hppToggleBtn').addEventListener('click', toggleHppNote);
