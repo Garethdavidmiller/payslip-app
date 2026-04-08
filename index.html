@@ -70,6 +70,8 @@
       /* Boxing Day badge */
       --boxing-day-bg:     #fff8e1;
       --boxing-day-text:   #bf6000;
+      /* Gold notice panels (settings new-year notice, etc.) */
+      --notice-text:       #5a4000;
     }
 
     *, *::before, *::after {
@@ -276,12 +278,84 @@
 
     /* ── SETTINGS NEW-YEAR NOTICE ── */
   .settings-notice {
-    background: #fff8e1; border: 1.5px solid var(--accent-gold);
+    background: var(--boxing-day-bg); border: 1.5px solid var(--accent-gold);
     border-radius: var(--radius-sm); padding: 10px 12px;
-    font-size: var(--type-small); color: #5a4000;
+    font-size: var(--type-small); color: var(--notice-text);
     margin-bottom: 12px; line-height: 1.5;
   }
   .settings-notice.hidden { display: none; }
+
+  /* ── HELP BUTTON (? circle on each card header) ── */
+  .help-btn {
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--bg-faint); border: 1.5px solid var(--border-mid);
+    color: var(--text-light); font-size: 11px; font-weight: 700;
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer; flex-shrink: 0; touch-action: manipulation;
+    font-family: inherit; line-height: 1;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .help-btn:active { background: var(--primary-blue); color: white; border-color: var(--primary-blue); }
+  @media (hover: hover) and (pointer: fine) {
+    .help-btn:hover { background: var(--primary-blue); color: white; border-color: var(--primary-blue); }
+  }
+
+  /* ── HELP LIGHTBOX ── */
+  #helpLightbox {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,10,20,0.82);
+    z-index: 8500;
+    align-items: center; justify-content: center;
+    opacity: 0; transition: opacity 0.2s ease;
+    -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+    cursor: pointer;
+  }
+  #helpLightbox.visible { display: flex; }
+  #helpLightbox.open    { opacity: 1; }
+  #helpLightboxContent {
+    position: relative;
+    background: rgba(255,255,255,0.09);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 20px; padding: 28px 24px 24px;
+    cursor: default;
+    transform: scale(0.88);
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    width: min(340px, 88vw);
+    max-height: 78vh; overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  #helpLightbox.open #helpLightboxContent { transform: scale(1); }
+  .help-lightbox-title {
+    color: white; font-size: 16px; font-weight: 700;
+    margin-bottom: 14px; padding-right: 22px; line-height: 1.3;
+  }
+  .help-lightbox-list {
+    list-style: none; padding: 0; margin: 0;
+  }
+  .help-lightbox-list li {
+    color: rgba(255,255,255,0.72);
+    font-size: 13px; line-height: 1.6;
+    padding: 7px 0 7px 18px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    position: relative;
+  }
+  .help-lightbox-list li:last-child { border-bottom: none; padding-bottom: 0; }
+  .help-lightbox-list li::before {
+    content: '·'; position: absolute; left: 0; top: 7px;
+    color: var(--accent-gold); font-weight: 800; font-size: 16px; line-height: 1.3;
+  }
+  .help-lightbox-list strong { color: rgba(255,255,255,0.92); font-weight: 700; }
+  #helpLightboxClose {
+    position: absolute; top: 14px; right: 16px;
+    background: none; border: none;
+    color: rgba(255,255,255,0.45); font-size: 22px;
+    cursor: pointer; padding: 6px; line-height: 1;
+    touch-action: manipulation; transition: color 0.15s ease;
+  }
+  #helpLightboxClose:active { color: white; }
+  @media (hover: hover) and (pointer: fine) {
+    #helpLightboxClose:hover { color: white; }
+  }
 
   /* ── SHOW MORE / HOURS EXTRA ── */
     .show-more-btn {
@@ -647,9 +721,9 @@
         min-height: auto !important;
       }
       .app { max-width: 100% !important; }
-      #splash, #iconLightbox, .setup-banner, .controls, .save-row,
-      .bd-btn, .boxing-banner, .clear-btn, .stepper button,
-      #backPayCard, #backPayToggle, .field-hint { display: none !important; }
+      #splash, #iconLightbox, #helpLightbox, .setup-banner, .controls, .save-row,
+      .bd-btn, .boxing-banner, .clear-btn, .stepper button, .help-btn,
+      #backPayCard, #backPayCardToggle, .field-hint { display: none !important; }
       .app-header {
         box-shadow: none !important;
         border: 1.5px solid var(--primary-blue) !important;
@@ -700,7 +774,9 @@
     /* ── REDUCED MOTION ──────────────────────────────────────────────── */
     @media (prefers-reduced-motion: reduce) {
       #splash, #iconLightbox, #iconLightboxContent,
-      .bd-body, .bd-arrow, .boxing-banner,
+      #helpLightbox, #helpLightboxContent,
+      .bd-body, .bd-arrow, .boxing-banner, .collapsible-body,
+      .show-more-arrow, .hpp-toggle-arrow, .card-toggle-arrow,
       .save-status, .stepper button, .lightbox-update-btn {
         transition: none !important;
         animation: none !important;
@@ -842,7 +918,10 @@
         <h2>⚙️ Your Settings</h2>
         <span class="hint" id="settingsHint">Check once per tax year — tap Save when done</span>
       </div>
-      <span class="card-toggle-arrow">▼</span>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;padding-top:2px">
+        <button class="help-btn" data-help="settings" aria-label="Help: Settings">?</button>
+        <span class="card-toggle-arrow">▼</span>
+      </div>
     </div>
     <div class="card-body collapsible-body open" id="settingsBody">
 
@@ -949,9 +1028,12 @@
 
   <!-- HOURS THIS PERIOD -->
   <div class="content-card">
-    <div class="card-header">
-      <h2>⏱️ Your Hours This Period</h2>
-      <span class="hint">Saved automatically as you type</span>
+    <div class="card-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+      <div>
+        <h2>⏱️ Your Hours This Period</h2>
+        <span class="hint">Saved automatically as you type</span>
+      </div>
+      <button class="help-btn" data-help="hours" aria-label="Help: Your Hours">?</button>
     </div>
     <div class="card-body">
 
@@ -1161,7 +1243,10 @@
         <h2>📊 Improve Accuracy <span style="font-size:12px;font-weight:400;color:var(--text-light)">(optional)</span></h2>
         <span class="hint">YTD figures from your payslip + January HPP amount</span>
       </div>
-      <span class="card-toggle-arrow">▼</span>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;padding-top:2px">
+        <button class="help-btn" data-help="accuracy" aria-label="Help: Improve Accuracy">?</button>
+        <span class="card-toggle-arrow">▼</span>
+      </div>
     </div>
     <div class="card-body collapsible-body" id="payslipCardBody">
 
@@ -1205,7 +1290,10 @@
         <h2>🏖️ Holiday Pay Premium (HPP)</h2>
         <span class="hint">Chiltern pay this once a year, each January</span>
       </div>
-      <span class="card-toggle-arrow">▼</span>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;padding-top:2px">
+        <button class="help-btn" data-help="hpp" aria-label="Help: Holiday Pay Premium">?</button>
+        <span class="card-toggle-arrow">▼</span>
+      </div>
     </div>
     <div class="card-body collapsible-body" id="hppCardBody">
       <p class="card-explainer">When you take annual leave, Chiltern only pay your basic rate — you miss out on overtime and rest day pay. To make up for this, they calculate a <strong>Holiday Pay Premium (HPP)</strong> and pay it as a lump sum every January. <button class="disclaimer-toggle" id="hppBackPayLink">Expecting a pay rise? Calculate back pay →</button></p>
@@ -1228,7 +1316,10 @@
         <h2>📈 Pay Rise Back Pay</h2>
         <span class="hint">Use when a pay award has been backdated to April</span>
       </div>
-      <span class="card-toggle-arrow">▼</span>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;padding-top:2px">
+        <button class="help-btn" data-help="backpay" aria-label="Help: Back Pay">?</button>
+        <span class="card-toggle-arrow">▼</span>
+      </div>
     </div>
     <div class="card-body collapsible-body" id="backPayBody">
       <p class="card-explainer">When a pay award is backdated, all the extra money owed is paid as a single lump sum. Select the first period covered by the new rate, enter the old and new values, then choose which payslip the lump sum lands on.</p>
@@ -1310,6 +1401,15 @@
   </main>
 
 </div>
+<!-- Help lightbox: opened by ? buttons on each card -->
+<div id="helpLightbox" role="dialog" aria-modal="true" aria-labelledby="helpLightboxTitle">
+  <div id="helpLightboxContent">
+    <button id="helpLightboxClose" aria-label="Close">✕</button>
+    <div class="help-lightbox-title" id="helpLightboxTitle"></div>
+    <ul class="help-lightbox-list" id="helpLightboxList"></ul>
+  </div>
+</div>
+
 <!-- About lightbox: opened by tapping the header icon -->
 <div id="iconLightbox" role="dialog" aria-label="About Marylebone Pay Calculator" aria-modal="true">
   <span id="iconLightboxClose" aria-label="Close">✕</span>
@@ -1324,8 +1424,10 @@
     <div class="lightbox-privacy">Your pay data is saved on this device only.<br>Nothing is sent to any server or shared with anyone.</div>
     <div class="lightbox-tips">
       <div class="lightbox-tips-title">Tips</div>
-      <div class="lightbox-tip"><span>Tap ← Prev / Next → to move between pay periods</span></div>
-      <div class="lightbox-tip"><span>Open ⚙️ Settings to enter your hourly rate and tax code</span></div>
+      <div class="lightbox-tip"><span>Tap <strong style="color:rgba(255,255,255,0.8)">?</strong> on any card for detailed help and explanations</span></div>
+      <div class="lightbox-tip"><span>Holiday Pay Premium (HPP) builds across the year — it's paid as a lump sum every January</span></div>
+      <div class="lightbox-tip"><span>Enter YTD figures from your payslip under <strong style="color:rgba(255,255,255,0.8)">Improve Accuracy</strong> for a sharper tax estimate</span></div>
+      <div class="lightbox-tip"><span>Your pay data never leaves this device — nothing is sent anywhere</span></div>
     </div>
     <a id="bugReportLink" class="lightbox-bug-link" href="#">🐛 Report a bug</a>
   </div>
@@ -1342,7 +1444,7 @@
 //     and the TAX / NI / SL threshold values below.
 //     P48 anchor (13 Feb 2026) stays fixed as the offset reference point.
 const CONFIG = {
-  APP_VERSION:    '1.14',
+  APP_VERSION:    '1.15',
   // Period arithmetic
   ANCHOR_DATE:    new Date(2026, 1, 13), // P48 payday: 13 Feb 2026 (fixed reference)
   PERIOD_DAYS:    28,
@@ -1445,6 +1547,59 @@ const SK = { rate:'cea_rate', rates:'cea_rates', code:'cea_code', sl:'cea_sl', p
 // Session-level tracker — prevents Settings card from auto-opening more than once per tax year
 // per browser session. Cleared on page reload. Uses tax year label as the key.
 const _settingsPrompted = new Set();
+
+// ── HELP CONTENT — per-card tip text ─────────────────────────────────────────
+// Keys match the data-help attribute on each .help-btn.
+// Tips support <strong> for emphasis — rendered via innerHTML in the lightbox.
+const HELP_CONTENT = {
+  hours: {
+    title: 'Your Hours — how it works',
+    tips: [
+      'Your contract includes <strong>140 hours per period</strong> at your base rate. You don\'t enter those — they\'re included automatically as basic pay.',
+      'Only enter hours at a <strong>different rate</strong>: Saturdays (1.25×), overtime (1.25×), rest days (1.25×), Sundays (1.5×), bank holidays (1.25×), Boxing Day (3×).',
+      'Bank holiday and Boxing Day rows only appear in periods that actually contain them — they\'re hidden the rest of the time.',
+      'The <strong>cut-off date</strong> is the last shift date counted in this pay period. Shifts on or after that date go into the next period.',
+      'Each entry updates the estimate instantly — no need to tap a calculate button.',
+    ],
+  },
+  settings: {
+    title: 'Settings — where to find things',
+    tips: [
+      '<strong>Hourly rate:</strong> shown on your payslip next to your name, or on your contract. The CEA rate is currently £20.74. It changes each April with the pay award.',
+      '<strong>Tax code:</strong> shown at the top of your payslip (e.g. 1257L). Most CEA staff are on 1257L. A code starting with S means you pay Scottish income tax rates.',
+      '<strong>Pension:</strong> the amount shown as "Smart RPS CR Scheme" on your payslip. It can vary slightly period to period — update it if your payslip shows a different figure.',
+      '<strong>Student loan:</strong> only select a plan if a student loan deduction appears on your payslip. If you repay by direct debit, leave this as None.',
+      'Settings are saved per tax year — updating your rate for 2026/27 won\'t affect your 2025/26 figures.',
+    ],
+  },
+  accuracy: {
+    title: 'Improve Accuracy — why it helps',
+    tips: [
+      'By default, tax is estimated as 1/13 of your annual allowance each period. This is usually close but can drift if you had an unusual period earlier in the year.',
+      'Entering <strong>YTD figures</strong> switches to HMRC\'s cumulative method — the same one Chiltern use. This is significantly more accurate.',
+      'Find <strong>"Total taxable pay"</strong> and <strong>"Total tax deducted"</strong> in the Year to Date box on your payslip (usually bottom-right). Update them whenever you get a new payslip.',
+      '<strong>HPP actual:</strong> once your January payslip arrives with the confirmed Holiday Pay Premium amount, enter it here to replace the running estimate.',
+    ],
+  },
+  hpp: {
+    title: 'Holiday Pay Premium (HPP)',
+    tips: [
+      'When you take annual leave, Chiltern only pay your <strong>basic contracted rate</strong> — you miss out on overtime, rest day pay, and Sunday pay for those days.',
+      'To compensate, Chiltern calculate a <strong>Holiday Pay Premium of 7.69%</strong> of your variable pay (overtime, RDW, Sundays, London Allowance) across the whole tax year.',
+      'This is paid as a <strong>single lump sum in your January payslip</strong> every year — it doesn\'t appear on any other payslip.',
+      'The estimate here totals your variable pay across all periods you\'ve entered in the current tax year. Once January arrives, enter the confirmed figure under Improve Accuracy.',
+    ],
+  },
+  backpay: {
+    title: 'Pay Rise Back Pay — when to use it',
+    tips: [
+      'Use this when a pay award is <strong>backdated to 1 April</strong>. Chiltern calculate the rate difference across every period since April, then pay the total on one payslip.',
+      'Enter your <strong>old and new hourly rates</strong> and London Allowance figures. The calculator uses the hours you\'ve already entered for each period.',
+      'The lump sum is taxed in the period it lands — if it pushes your income over a higher tax band that month, you may receive less than the gross figure shown.',
+      'Tap <strong>"Apply new rate"</strong> to update Settings with the new rate so all future estimates use the correct figure.',
+    ],
+  },
+};
 function periodKey(pNum) { return `cea_p${pNum}`; }
 
 // Period data schema — all fields that get saved per period
@@ -1774,7 +1929,9 @@ function onPeriodChange() {
     _settingsPrompted.add(ty.label);
     document.getElementById('settingsToggle').classList.add('open');
     document.getElementById('settingsBody').classList.add('open');
-    document.getElementById('settingsNewYearNotice').classList.remove('hidden');
+    const notice = document.getElementById('settingsNewYearNotice');
+    notice.textContent = `New tax year ${ty.label} — please check your hourly rate is up to date, then tap Save settings.`;
+    notice.classList.remove('hidden');
   }
 
   // Show/hide bank holiday rows based on whether this period has any
@@ -2753,6 +2910,47 @@ Device: ${navigator.userAgent}
   lightbox.addEventListener('click', closeLightbox);
   if (contentCard) contentCard.addEventListener('click', e => e.stopPropagation());
   if (closeBtn)    closeBtn.addEventListener('click', closeLightbox);
+})();
+
+// ── HELP LIGHTBOX ─────────────────────────────────────────────────────────────
+// Generic lightbox driven by HELP_CONTENT — opened by any .help-btn[data-help].
+(function () {
+  const lb      = document.getElementById('helpLightbox');
+  const content = document.getElementById('helpLightboxContent');
+  const titleEl = document.getElementById('helpLightboxTitle');
+  const listEl  = document.getElementById('helpLightboxList');
+  const closeBtn = document.getElementById('helpLightboxClose');
+  if (!lb) return;
+
+  function openHelp(key) {
+    const data = HELP_CONTENT[key];
+    if (!data) return;
+    titleEl.textContent = data.title;
+    listEl.innerHTML = data.tips.map(t => `<li>${t}</li>`).join('');
+    lb.classList.add('visible');
+    requestAnimationFrame(() => lb.classList.add('open'));
+    document.addEventListener('keydown', onKey);
+  }
+
+  function closeHelp() {
+    lb.classList.remove('open');
+    lb.addEventListener('transitionend', () => lb.classList.remove('visible'), { once: true });
+    document.removeEventListener('keydown', onKey);
+  }
+
+  function onKey(e) { if (e.key === 'Escape') closeHelp(); }
+
+  lb.addEventListener('click', closeHelp);
+  if (content) content.addEventListener('click', e => e.stopPropagation());
+  if (closeBtn) closeBtn.addEventListener('click', closeHelp);
+
+  // Wire all ? buttons. stopPropagation prevents collapsible card toggles firing.
+  document.querySelectorAll('.help-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      openHelp(btn.dataset.help);
+    });
+  });
 })();
 
 // ── SERVICE WORKER REGISTRATION + AUTO-UPDATE TOAST ──────────────────────────
