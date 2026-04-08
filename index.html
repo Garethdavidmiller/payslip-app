@@ -513,6 +513,13 @@
     .setup-banner h2 { font-size: 15px; font-weight: 800; color: var(--primary-blue); margin-bottom: 4px; }
     .setup-banner p  { font-size: 13px; color: var(--text-mid); line-height: 1.5; }
     .privacy-note { font-size: var(--type-small); color: var(--text-mid); margin-top: 10px; padding: 8px 10px; background: var(--bg-faint); border-left: 3px solid var(--primary-blue); border-radius: 0 6px 6px 0; line-height: 1.5; }
+    /* Standalone privacy note — always visible, sits below the conditional setup banner */
+    .privacy-note-standalone {
+      background: white; border-radius: var(--radius-md); box-shadow: var(--shadow-1);
+      padding: 9px 12px 9px 15px; margin-bottom: 16px;
+      border-left: 3px solid var(--primary-blue);
+      font-size: var(--type-small); color: var(--text-mid); line-height: 1.5;
+    }
 
     /* Disclaimer */
     .disclaimer {
@@ -904,12 +911,14 @@
 
   <main>
 
-  <!-- FIRST-RUN SETUP BANNER (hidden after first save) -->
-  <div class="setup-banner" id="setupBanner">
-    <h2>👋 Welcome — two things to set first</h2>
-    <p>Enter your <strong>hourly rate</strong> and <strong>tax code</strong> in Your Settings below, then tap <strong>Save settings</strong>.</p>
-    <p class="privacy-note">🔒 Everything stays on your phone. Your pay data is never sent anywhere or seen by anyone.</p>
+  <!-- SETUP BANNER: shown when current tax year's settings haven't been confirmed yet -->
+  <div class="setup-banner hidden" id="setupBanner">
+    <h2 id="setupBannerTitle">👋 Set up for 2025/26</h2>
+    <p id="setupBannerBody">Enter your <strong>hourly rate</strong> and <strong>tax code</strong> in ⚙️ Your Settings below, then tap <strong>Save settings</strong>. These settings are for this tax year only — the app will prompt you again when the new year starts.</p>
   </div>
+
+  <!-- PRIVACY NOTE: always visible -->
+  <div class="privacy-note-standalone">🔒 Your pay data is saved on this device only — never sent to any server or seen by anyone.</div>
 
   <!-- SETTINGS (at top so first-time users find it immediately) -->
   <div class="content-card" id="settingsCard">
@@ -1062,7 +1071,7 @@
         </div>
       </div>
 
-      <!-- Bank Holiday Rostered — hidden when period has no bank holidays -->
+      <!-- Bank Holiday rows — both hidden when period has no bank holidays -->
       <div class="hours-row hidden" id="bhRow">
         <div class="h-info">
           <div class="h-title">🏖️ Bank Holiday Hours <span class="rate-badge badge-bh" id="badge-bh">1.25×  ·  £25.93/hr</span></div>
@@ -1077,6 +1086,27 @@
             <span class="hhmm-sep">:</span>
             <div class="hhmm-field">
               <input type="number" id="bhM" min="0" max="59" placeholder="00" inputmode="numeric">
+              <span class="hhmm-lbl">mins</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bank Holiday Overtime — also hidden when no bank holiday in period -->
+      <div class="hours-row hidden" id="bhOtRow">
+        <div class="h-info">
+          <div class="h-title">➕ Bank Holiday Overtime <span class="rate-badge badge-bh" id="badge-bhot">1.25×  ·  £25.93/hr</span></div>
+          <div class="h-sub">Worked a rest day that fell on a bank holiday — you weren't rostered, but came in. Shows as "Bank Holiday Overtime 1.25" on your payslip.</div>
+        </div>
+        <div>
+          <div class="hhmm-wrap">
+            <div class="hhmm-field">
+              <input type="number" id="bhOtH" min="0" max="99" placeholder="0" inputmode="numeric">
+              <span class="hhmm-lbl">hrs</span>
+            </div>
+            <span class="hhmm-sep">:</span>
+            <div class="hhmm-field">
+              <input type="number" id="bhOtM" min="0" max="59" placeholder="00" inputmode="numeric">
               <span class="hhmm-lbl">mins</span>
             </div>
           </div>
@@ -1187,33 +1217,12 @@
 
       <!-- ── SHOW MORE TOGGLE ── -->
       <button class="show-more-btn" id="hoursShowMore">
-        More options (bank holiday overtime, adjustments) <span class="show-more-arrow">▼</span>
+        More options (period adjustments) <span class="show-more-arrow">▼</span>
       </button>
 
       <div class="hours-extra" id="hoursExtra">
 
-        <!-- Bank Holiday Overtime (rare — non-rostered BH hours) -->
-        <div class="sec-hd" style="margin-top:4px">Unusual items this period</div>
-
-        <div class="hours-row" id="bhOtRow">
-          <div class="h-info">
-            <div class="h-title">➕ Bank Holiday Overtime <span class="rate-badge badge-bh" id="badge-bhot">1.25×  ·  £25.93/hr</span></div>
-            <div class="h-sub">Extra (unrostered) hours worked on a bank holiday — on top of your rostered shift. Shows as "Bank Holiday Overtime 1.25" on your payslip.</div>
-          </div>
-          <div>
-            <div class="hhmm-wrap">
-              <div class="hhmm-field">
-                <input type="number" id="bhOtH" min="0" max="99" placeholder="0" inputmode="numeric">
-                <span class="hhmm-lbl">hrs</span>
-              </div>
-              <span class="hhmm-sep">:</span>
-              <div class="hhmm-field">
-                <input type="number" id="bhOtM" min="0" max="59" placeholder="00" inputmode="numeric">
-                <span class="hhmm-lbl">mins</span>
-              </div>
-            </div>
-          </div>
-        </div>
+        <div class="sec-hd" style="margin-top:4px">Period adjustments</div>
 
         <div class="toggle-row hidden" id="slSkipRow">
           <input type="checkbox" id="slSkipCheck">
@@ -1444,7 +1453,7 @@
 //     and the TAX / NI / SL threshold values below.
 //     P48 anchor (13 Feb 2026) stays fixed as the offset reference point.
 const CONFIG = {
-  APP_VERSION:    '1.15',
+  APP_VERSION:    '1.17',
   // Period arithmetic
   ANCHOR_DATE:    new Date(2026, 1, 13), // P48 payday: 13 Feb 2026 (fixed reference)
   PERIOD_DAYS:    28,
@@ -1556,8 +1565,9 @@ const HELP_CONTENT = {
     title: 'Your Hours — how it works',
     tips: [
       'Your contract includes <strong>140 hours per period</strong> at your base rate. You don\'t enter those — they\'re included automatically as basic pay.',
-      'Only enter hours at a <strong>different rate</strong>: Saturdays (1.25×), overtime (1.25×), rest days (1.25×), Sundays (1.5×), bank holidays (1.25×), Boxing Day (3×).',
-      'Bank holiday and Boxing Day rows only appear in periods that actually contain them — they\'re hidden the rest of the time.',
+      'Only enter hours at a <strong>different rate</strong>: Saturdays (1.25×), overtime (1.25×), rest days (1.25×), Sundays (1.5×), Boxing Day (3×).',
+      '<strong>Bank holiday rows</strong> appear automatically in periods that contain one. "Bank Holiday Rostered" is for contracted shifts on a BH; "Bank Holiday Overtime" is for working a rest day that happened to fall on a BH.',
+      'Boxing Day rows only appear in the January payslip period — they\'re hidden the rest of the time.',
       'The <strong>cut-off date</strong> is the last shift date counted in this pay period. Shifts on or after that date go into the next period.',
       'Each entry updates the estimate instantly — no need to tap a calculate button.',
     ],
@@ -1918,20 +1928,31 @@ function onPeriodChange() {
   updateRateForPeriod(ty);
 
   // Settings confirmation check for this tax year.
-  // If confirmed: update the card header hint to show the saved values.
-  // If not confirmed and not yet prompted this session: open Settings and show the notice.
   const tyConfirmed = localStorage.getItem(settingsKey(ty));
   if (tyConfirmed) {
+    // Confirmed — hide banner, update card header hint with saved values.
+    document.getElementById('setupBanner').classList.add('hidden');
     const rate = parseFloat(document.getElementById('hourlyRate').value || '20.74').toFixed(2);
     const code = (document.getElementById('taxCode').value || '1257L').toUpperCase();
     document.getElementById('settingsHint').textContent = `✓ ${ty.label} — £${rate}/hr · ${code}`;
-  } else if (!_settingsPrompted.has(ty.label)) {
-    _settingsPrompted.add(ty.label);
-    document.getElementById('settingsToggle').classList.add('open');
-    document.getElementById('settingsBody').classList.add('open');
-    const notice = document.getElementById('settingsNewYearNotice');
-    notice.textContent = `New tax year ${ty.label} — please check your hourly rate is up to date, then tap Save settings.`;
-    notice.classList.remove('hidden');
+  } else {
+    // Not yet confirmed — show banner with the current tax year label.
+    document.getElementById('setupBannerTitle').textContent = `👋 Set up for ${ty.label}`;
+    document.getElementById('setupBannerBody').innerHTML =
+      `Enter your <strong>hourly rate</strong> and <strong>tax code</strong> in ⚙️ Your Settings below, then tap <strong>Save settings</strong>. These settings apply to ${ty.label} only — you'll be prompted again when the new tax year starts.`;
+    document.getElementById('setupBanner').classList.remove('hidden');
+    // Auto-open settings once per session per TY — only for returning users (new users
+    // already see the settings card open). Show the in-card notice for returning users.
+    if (!_settingsPrompted.has(ty.label)) {
+      _settingsPrompted.add(ty.label);
+      if (localStorage.getItem(SK.setup)) {
+        document.getElementById('settingsToggle').classList.add('open');
+        document.getElementById('settingsBody').classList.add('open');
+        const notice = document.getElementById('settingsNewYearNotice');
+        notice.textContent = `New tax year ${ty.label} — check your hourly rate is up to date, then tap Save settings.`;
+        notice.classList.remove('hidden');
+      }
+    }
   }
 
   // Show/hide bank holiday rows based on whether this period has any
@@ -2015,7 +2036,7 @@ function loadPeriodData(pNum) {
   } catch(e) { /* use empty */ }
   writeFormData(d);
   // Auto-expand "more options" if this period has extras saved
-  const hasExtras = d.bhOtH || d.bhOtM || d.slSkip || d.otherAdj;
+  const hasExtras = d.slSkip || d.otherAdj;
   const extraBody = document.getElementById('hoursExtra');
   const extraBtn  = document.getElementById('hoursShowMore');
   if (hasExtras && !extraBody.classList.contains('open')) {
@@ -2027,7 +2048,7 @@ function loadPeriodData(pNum) {
     extraBody.classList.remove('open');
     extraBtn.classList.remove('open');
     extraBtn.querySelector('.show-more-arrow').textContent = '▼';
-    extraBtn.childNodes[0].textContent = 'More options (bank holiday overtime, adjustments) ';
+    extraBtn.childNodes[0].textContent = 'More options (period adjustments)';
   }
   updateSaveStatus(pNum);
   calculate();
@@ -2163,7 +2184,6 @@ function loadSettings() {
         localStorage.setItem(settingsKey(ty), '1');
       }
     });
-    document.getElementById('setupBanner').classList.add('hidden');
     document.getElementById('settingsToggle').classList.remove('open');
     document.getElementById('settingsBody').classList.remove('open');
   }
@@ -2691,7 +2711,7 @@ function toggleHoursExtra() {
   btn.querySelector('.show-more-arrow').textContent = open ? '▲' : '▼';
   btn.childNodes[0].textContent = open
     ? 'Fewer options '
-    : 'More options (bank holiday overtime, adjustments) ';
+    : 'More options (period adjustments)';
 }
 
 function toggleHppNote() {
