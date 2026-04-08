@@ -274,6 +274,24 @@
     }
     .sec-hd.first { padding-top: 4px; }
 
+    /* ── SHOW MORE / HOURS EXTRA ── */
+    .show-more-btn {
+      display: flex; align-items: center; gap: 6px; justify-content: center;
+      width: 100%; margin-top: 4px; padding: 10px 0;
+      background: none; border: 1.5px dashed var(--border-mid);
+      border-radius: var(--radius-sm); color: var(--text-mid);
+      font-size: var(--type-small); font-weight: 700; cursor: pointer;
+      touch-action: manipulation; font-family: inherit;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    @media (hover: hover) and (pointer: fine) {
+      .show-more-btn:hover { border-color: var(--primary-blue); color: var(--primary-blue); }
+    }
+    .show-more-arrow { font-size: 9px; transition: transform 0.25s; }
+    .show-more-btn.open .show-more-arrow { transform: rotate(180deg); }
+    .hours-extra { display: none; }
+    .hours-extra.open { display: block; }
+
     /* ── HOURS ROWS ── */
     .hours-row {
       display: flex; align-items: center; justify-content: space-between;
@@ -820,22 +838,12 @@
     <div class="card-body collapsible-body open" id="settingsBody">
 
       <div class="field">
-        <label>Grade</label>
-        <select id="gradeSelect">
-          <option value="cea">CEA — Customer Experience Adviser</option>
-          <option value="ces" disabled>CES — Customer Experience Supervisor (coming soon)</option>
-          <option value="dispatch" disabled>Dispatch (coming soon)</option>
-        </select>
-        <div class="field-hint">Your grade determines your contracted hours and pay rates. CEA is the only grade supported in this version.</div>
-      </div>
-
-      <div class="field">
-        <label>Your Hourly Rate</label>
+        <label>Your Hourly Rate <span class="note" id="rateYearLabel"></span></label>
         <div class="pfx">
           <span class="pfx-sym">£</span>
           <input type="number" id="hourlyRate" step="0.01" min="0" value="20.74" inputmode="decimal">
         </div>
-        <div class="field-hint">Your base hourly rate — check your latest payslip. Default is £20.74 (current CEA rate at Marylebone).</div>
+        <div class="field-hint">Your base hourly rate — check your latest payslip. Default is £20.74 (current CEA rate). The app stores a separate rate for each tax year, so changing it for 2026/27 won't affect your 2025/26 figures.</div>
       </div>
 
       <div class="field">
@@ -845,13 +853,13 @@
       </div>
 
       <div class="field">
-        <label>Pension contribution <span class="note">Smart RPS CR Scheme</span></label>
+        <label>Pension <span class="note">Smart RPS CR Scheme</span></label>
         <div class="pfx">
           <span class="pfx-sym">£</span>
           <input type="number" id="pensionAmt" step="0.01" min="0" value="154.77" inputmode="decimal">
         </div>
-        <div class="field-hint">Your pension deduction per period — shown as "Smart RPS CR Scheme" on your payslip. Deducted before tax and NI, which reduces both. The amount varies across the year — check each period's payslip, as earlier periods may show a different figure.</div>
-        <div id="pensionWarn" class="val-warn" style="display:none">⚠ Pension contribution exceeds gross pay — check the amount</div>
+        <div class="field-hint">Your pension deduction per period — shown as "Smart RPS CR Scheme" on your payslip. The amount varies slightly across the year — check each period's payslip and update this if needed.</div>
+        <div id="pensionWarn" class="val-warn" style="display:none">⚠ Pension exceeds gross pay — check the amount</div>
       </div>
 
       <div class="field">
@@ -865,6 +873,16 @@
           <option value="postgrad">Postgraduate Loan</option>
         </select>
         <div class="field-hint">Only select a plan if student loan deductions appear on your payslip. If you repay by direct debit, leave as None.</div>
+      </div>
+
+      <div class="field">
+        <label>Grade</label>
+        <select id="gradeSelect">
+          <option value="cea">CEA — Customer Experience Adviser</option>
+          <option value="ces" disabled>CES — Customer Experience Supervisor (coming soon)</option>
+          <option value="dispatch" disabled>Dispatch (coming soon)</option>
+        </select>
+        <div class="field-hint">CEA is the only grade currently supported. CES and Dispatch will be added in a future update.</div>
       </div>
 
     </div>
@@ -906,7 +924,7 @@
     <div class="payslip-note" id="payslipNote" style="display:none">
       ℹ️ Your pension (£<span id="pensionRef">–</span>/period) is deducted before tax — so your payslip's gross figure will be lower than the total above. This is normal.
     </div>
-    <div class="payslip-note" style="color:var(--text-mid);font-size:var(--type-small);border-top:1px solid var(--border-light);padding-top:8px;margin-top:4px">
+    <div id="absenceCaveat" class="payslip-note" style="display:none;color:var(--text-mid);font-size:var(--type-small);border-top:1px solid var(--border-light);padding-top:8px;margin-top:4px">
       ⚠️ Less accurate in periods with absence, back pay, or payroll corrections — those may not reconcile line-for-line with your payslip.
     </div>
     <button class="bd-btn" id="bdBtn">
@@ -948,8 +966,8 @@
         </div>
       </div>
 
-      <!-- Bank Holiday Rostered -->
-      <div class="hours-row">
+      <!-- Bank Holiday Rostered — hidden when period has no bank holidays -->
+      <div class="hours-row hidden" id="bhRow">
         <div class="h-info">
           <div class="h-title">🏖️ Bank Holiday Hours <span class="rate-badge badge-bh" id="badge-bh">1.25×  ·  £25.93/hr</span></div>
           <div class="h-sub">Rostered shifts that fall on a bank holiday (Easter, summer BH, etc.). Shows as "Bank Holiday Rostered 1.25" on your payslip.</div>
@@ -963,27 +981,6 @@
             <span class="hhmm-sep">:</span>
             <div class="hhmm-field">
               <input type="number" id="bhM" min="0" max="59" placeholder="00" inputmode="numeric">
-              <span class="hhmm-lbl">mins</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Bank Holiday Overtime -->
-      <div class="hours-row">
-        <div class="h-info">
-          <div class="h-title">🏖️ Bank Holiday Overtime <span class="rate-badge badge-bh" id="badge-bhot">1.25×  ·  £25.93/hr</span></div>
-          <div class="h-sub">Extra (non-rostered) hours worked on a bank holiday. Shows as "Bank Holiday Overtime 1.25" on your payslip.</div>
-        </div>
-        <div>
-          <div class="hhmm-wrap">
-            <div class="hhmm-field">
-              <input type="number" id="bhOtH" min="0" max="99" placeholder="0" inputmode="numeric">
-              <span class="hhmm-lbl">hrs</span>
-            </div>
-            <span class="hhmm-sep">:</span>
-            <div class="hhmm-field">
-              <input type="number" id="bhOtM" min="0" max="59" placeholder="00" inputmode="numeric">
               <span class="hhmm-lbl">mins</span>
             </div>
           </div>
@@ -1092,23 +1089,52 @@
         </div>
       </div>
 
-      <!-- ── PERIOD OVERRIDES ── -->
-      <div class="sec-hd" style="margin-top:8px">Period Adjustments</div>
+      <!-- ── SHOW MORE TOGGLE ── -->
+      <button class="show-more-btn" id="hoursShowMore">
+        More options (bank holiday overtime, adjustments) <span class="show-more-arrow">▼</span>
+      </button>
 
-      <div class="toggle-row hidden" id="slSkipRow">
-        <input type="checkbox" id="slSkipCheck">
-        <label for="slSkipCheck">Student loan was <strong>not</strong> deducted this period</label>
-      </div>
+      <div class="hours-extra" id="hoursExtra">
 
-      <div class="hours-row" style="padding-top:10px;border-top:1px solid var(--border-light)">
-        <div class="h-info">
-          <div class="h-title">± Other payroll adjustment</div>
-          <div class="h-sub">For absence offsets, corrections, or any "Other" line on your payslip. Use a negative number for a deduction (e.g. −£45.00), positive for an addition.</div>
+        <!-- Bank Holiday Overtime (rare — non-rostered BH hours) -->
+        <div class="sec-hd" style="margin-top:4px">Unusual items this period</div>
+
+        <div class="hours-row" id="bhOtRow">
+          <div class="h-info">
+            <div class="h-title">➕ Bank Holiday Overtime <span class="rate-badge badge-bh" id="badge-bhot">1.25×  ·  £25.93/hr</span></div>
+            <div class="h-sub">Extra (unrostered) hours worked on a bank holiday — on top of your rostered shift. Shows as "Bank Holiday Overtime 1.25" on your payslip.</div>
+          </div>
+          <div>
+            <div class="hhmm-wrap">
+              <div class="hhmm-field">
+                <input type="number" id="bhOtH" min="0" max="99" placeholder="0" inputmode="numeric">
+                <span class="hhmm-lbl">hrs</span>
+              </div>
+              <span class="hhmm-sep">:</span>
+              <div class="hhmm-field">
+                <input type="number" id="bhOtM" min="0" max="59" placeholder="00" inputmode="numeric">
+                <span class="hhmm-lbl">mins</span>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="pfx" style="width:110px;flex-shrink:0">
-          <span class="pfx-sym">£</span>
-          <input type="number" id="otherAdj" step="0.01" placeholder="0.00" inputmode="decimal" style="text-align:right">
+
+        <div class="toggle-row hidden" id="slSkipRow">
+          <input type="checkbox" id="slSkipCheck">
+          <label for="slSkipCheck">Student loan was <strong>not</strong> deducted this period</label>
         </div>
+
+        <div class="hours-row">
+          <div class="h-info">
+            <div class="h-title">± Other payroll adjustment</div>
+            <div class="h-sub">For absence offsets, corrections, or any "Other" line on your payslip. Use a negative number for a deduction (e.g. −£45.00), positive for an addition.</div>
+          </div>
+          <div class="pfx" style="width:110px;flex-shrink:0">
+            <span class="pfx-sym">£</span>
+            <input type="number" id="otherAdj" step="0.01" placeholder="0.00" inputmode="decimal" style="text-align:right">
+          </div>
+        </div>
+
       </div>
 
     </div>
@@ -1118,8 +1144,8 @@
   <div class="content-card">
     <div class="card-header card-header-toggle" id="payslipCardToggle">
       <div>
-        <h2>📋 From Your Last Payslip</h2>
-        <span class="hint">Optional figures that improve accuracy</span>
+        <h2>📊 Improve Accuracy <span style="font-size:12px;font-weight:400;color:var(--text-light)">(optional)</span></h2>
+        <span class="hint">YTD figures from your payslip + January HPP amount</span>
       </div>
       <span class="card-toggle-arrow">▼</span>
     </div>
@@ -1302,7 +1328,7 @@
 //     and the TAX / NI / SL threshold values below.
 //     P48 anchor (13 Feb 2026) stays fixed as the offset reference point.
 const CONFIG = {
-  APP_VERSION:    '1.11',
+  APP_VERSION:    '1.12',
   // Period arithmetic
   ANCHOR_DATE:    new Date(2026, 1, 13), // P48 payday: 13 Feb 2026 (fixed reference)
   PERIOD_DAYS:    28,
@@ -1398,7 +1424,9 @@ const GRADES = {
 };
 
 // ── STORAGE KEYS ──────────────────────────────────────────────────────────────
-const SK = { rate:'cea_rate', code:'cea_code', sl:'cea_sl', pension:'cea_pension', setup:'cea_setup_done', ytdPay:'cea_ytd_pay', ytdTax:'cea_ytd_tax', hppActual:'cea_hpp_actual', grade:'cea_grade' };
+const SK = { rate:'cea_rate', rates:'cea_rates', code:'cea_code', sl:'cea_sl', pension:'cea_pension', setup:'cea_setup_done', ytdPay:'cea_ytd_pay', ytdTax:'cea_ytd_tax', hppActual:'cea_hpp_actual', grade:'cea_grade' };
+// cea_rates is a JSON object: { '2025/26': 20.74, '2026/27': 21.50 }
+// Separate rate per tax year so updating for a pay award doesn't distort historical periods.
 function periodKey(pNum) { return `cea_p${pNum}`; }
 
 // Period data schema — all fields that get saved per period
@@ -1465,6 +1493,45 @@ function hasBoxingDay(p) {
     if (bd >= p.start && bd <= p.cutoff) return true;
   }
   return false;
+}
+
+// ── BANK HOLIDAY DETECTION ────────────────────────────────────────────────────
+// England & Wales bank holidays for the covered period range (P37–P62, Apr 2025–Mar 2027).
+// Boxing Day (26 Dec) is handled separately by hasBoxingDay() at 3× rate.
+// ⚠️ Update each year with confirmed dates from gov.uk/bank-holidays
+const BANK_HOLIDAYS_EW = [
+  new Date(2025,  3, 18), // Good Friday 2025
+  new Date(2025,  3, 21), // Easter Monday 2025
+  new Date(2025,  4,  5), // Early May BH 2025
+  new Date(2025,  4, 26), // Spring BH 2025
+  new Date(2025,  7, 25), // Summer BH 2025
+  new Date(2025, 11, 25), // Christmas Day 2025
+  new Date(2026,  0,  1), // New Year's Day 2026
+  new Date(2026,  3,  3), // Good Friday 2026
+  new Date(2026,  3,  6), // Easter Monday 2026
+  new Date(2026,  4,  4), // Early May BH 2026
+  new Date(2026,  4, 25), // Spring BH 2026
+  new Date(2026,  7, 31), // Summer BH 2026
+  new Date(2026, 11, 25), // Christmas Day 2026
+  new Date(2026, 11, 28), // Boxing Day substitute 2026 (26 Dec is a Saturday → Mon 28 Dec)
+  new Date(2027,  0,  1), // New Year's Day 2027
+];
+
+function hasBankHoliday(p) {
+  // Returns true if any E&W bank holiday (other than 26 Dec) falls in the period window
+  return BANK_HOLIDAYS_EW.some(bh => bh >= p.start && bh <= p.cutoff);
+}
+
+function updateBhRows(p) {
+  const hasBH = hasBankHoliday(p);
+  document.getElementById('bhRow').classList.toggle('hidden', !hasBH);
+  document.getElementById('bhOtRow').classList.toggle('hidden', !hasBH);
+  if (!hasBH) {
+    document.getElementById('bhH').value  = '';
+    document.getElementById('bhM').value  = '';
+    document.getElementById('bhOtH').value = '';
+    document.getElementById('bhOtM').value = '';
+  }
 }
 
 // ── TAX YEAR HELPERS ──────────────────────────────────────────────────────────
@@ -1571,6 +1638,20 @@ function buildBackPayPeriodSelect() {
   populate(fromSel, '— all periods with saved data —');
 }
 
+// ── PER-TAX-YEAR RATE ─────────────────────────────────────────────────────────
+// Loads the stored rate for the given tax year into the hourly rate field.
+// Falls back to the legacy single rate, then to the CEA default.
+function updateRateForPeriod(ty) {
+  const rates = JSON.parse(localStorage.getItem(SK.rates) || '{}');
+  const rate  = rates[ty.label]
+             || parseFloat(localStorage.getItem(SK.rate))
+             || GRADES.cea.rate;
+  document.getElementById('hourlyRate').value = rate.toFixed(2);
+  // Update label to show which tax year this rate applies to
+  const lbl = document.getElementById('rateYearLabel');
+  if (lbl) lbl.textContent = `for ${ty.label}`;
+}
+
 // ── TAX YEAR TABS ─────────────────────────────────────────────────────────────
 function updateTyTabs() {
   const pNum = currentPeriodNum();
@@ -1656,6 +1737,12 @@ function onPeriodChange() {
   // Update tax year tab active state
   updateTyTabs();
 
+  // Load the rate for this period's tax year into the Settings field
+  updateRateForPeriod(ty);
+
+  // Show/hide bank holiday rows based on whether this period has any
+  updateBhRows(p);
+
   // Load saved data for this period
   loadPeriodData(p.num);
 
@@ -1727,15 +1814,26 @@ function autosave() {
 }
 
 function loadPeriodData(pNum) {
+  let d = emptyPeriodData();
   try {
     const raw = localStorage.getItem(periodKey(pNum));
-    if (raw) {
-      writeFormData(JSON.parse(raw));
-    } else {
-      writeFormData(emptyPeriodData());
-    }
-  } catch(e) {
-    writeFormData(emptyPeriodData());
+    if (raw) d = JSON.parse(raw);
+  } catch(e) { /* use empty */ }
+  writeFormData(d);
+  // Auto-expand "more options" if this period has extras saved
+  const hasExtras = d.bhOtH || d.bhOtM || d.slSkip || d.otherAdj;
+  const extraBody = document.getElementById('hoursExtra');
+  const extraBtn  = document.getElementById('hoursShowMore');
+  if (hasExtras && !extraBody.classList.contains('open')) {
+    extraBody.classList.add('open');
+    extraBtn.classList.add('open');
+    extraBtn.querySelector('.show-more-arrow').textContent = '▲';
+    extraBtn.childNodes[0].textContent = 'Fewer options ';
+  } else if (!hasExtras && extraBody.classList.contains('open')) {
+    extraBody.classList.remove('open');
+    extraBtn.classList.remove('open');
+    extraBtn.querySelector('.show-more-arrow').textContent = '▼';
+    extraBtn.childNodes[0].textContent = 'More options (bank holiday overtime, adjustments) ';
   }
   updateSaveStatus(pNum);
   calculate();
@@ -1785,7 +1883,15 @@ function clearPeriod() {
 
 // ── SETTINGS SAVE / LOAD ──────────────────────────────────────────────────────
 function saveSettings() {
-  localStorage.setItem(SK.rate,      document.getElementById('hourlyRate').value);
+  const rateVal = document.getElementById('hourlyRate').value;
+  // Save rate per tax year — so a pay rise in 2026/27 doesn't change 2025/26 figures
+  const pNum    = currentPeriodNum();
+  const curP    = getPeriods().find(x => x.num === pNum);
+  const curTy   = curP ? getTaxYearForOffset(curP.num - 48) : CONFIG.TAX_YEARS[0];
+  const rates   = JSON.parse(localStorage.getItem(SK.rates) || '{}');
+  rates[curTy.label] = parseFloat(rateVal) || 20.74;
+  localStorage.setItem(SK.rates,     JSON.stringify(rates));
+  localStorage.setItem(SK.rate,      rateVal); // legacy fallback
   localStorage.setItem(SK.code,      document.getElementById('taxCode').value);
   localStorage.setItem(SK.sl,        document.getElementById('studentLoan').value);
   localStorage.setItem(SK.pension,   document.getElementById('pensionAmt').value);
@@ -1793,20 +1899,29 @@ function saveSettings() {
   localStorage.setItem(SK.ytdTax,    document.getElementById('ytdTax').value);
   localStorage.setItem(SK.hppActual, document.getElementById('hppActual').value);
   localStorage.setItem(SK.grade,     document.getElementById('gradeSelect').value);
-  localStorage.setItem(SK.setup,     '1'); // mark setup as done
+  localStorage.setItem(SK.setup,     '1');
   document.getElementById('setupBanner').classList.add('hidden');
   calculate();
 }
 
 function loadSettings() {
-  const rate    = localStorage.getItem(SK.rate);
+  // Migrate legacy single rate to per-tax-year rates if not already done
+  if (!localStorage.getItem(SK.rates)) {
+    const legacyRate = localStorage.getItem(SK.rate);
+    if (legacyRate) {
+      const rates = {};
+      CONFIG.TAX_YEARS.forEach(ty => { rates[ty.label] = parseFloat(legacyRate); });
+      localStorage.setItem(SK.rates, JSON.stringify(rates));
+    }
+  }
+  // Rate is set per-period in updateRateForPeriod() called from onPeriodChange —
+  // no need to set it here; the field will update when buildPeriodSelect fires.
   const code    = localStorage.getItem(SK.code);
   const sl      = localStorage.getItem(SK.sl);
   const pension = localStorage.getItem(SK.pension);
   const ytdPay  = localStorage.getItem(SK.ytdPay);
   const ytdTax  = localStorage.getItem(SK.ytdTax);
   const done    = localStorage.getItem(SK.setup);
-  if (rate)    document.getElementById('hourlyRate').value  = rate;
   if (code)    document.getElementById('taxCode').value     = code.toUpperCase();
   if (sl)      document.getElementById('studentLoan').value = sl;
   if (pension) document.getElementById('pensionAmt').value  = pension;
@@ -1816,7 +1931,7 @@ function loadSettings() {
   if (hppActual) document.getElementById('hppActual').value = hppActual;
   const grade = localStorage.getItem(SK.grade);
   if (grade) document.getElementById('gradeSelect').value = grade;
-  // On repeat visits: hide banner and collapse Settings so it's out of the way
+  // On repeat visits: hide banner and collapse Settings
   if (done) {
     document.getElementById('setupBanner').classList.add('hidden');
     document.getElementById('settingsToggle').classList.remove('open');
@@ -2008,6 +2123,7 @@ function calculate() {
   document.getElementById('netDisplay').textContent = fmt(net);
   document.getElementById('pensionRef').textContent = pension.toFixed(2);
   document.getElementById('payslipNote').style.display = 'block';
+  document.getElementById('absenceCaveat').style.display = 'block';
 
   document.getElementById('summary').innerHTML = `
     <div class="sum-row sum-gross"><span class="lbl">Total pay</span><span class="val">${fmt(gross)}</span></div>
@@ -2336,6 +2452,18 @@ function applyNewRate() {
 }
 
 // ── HPP FORMULA NOTE TOGGLE ───────────────────────────────────────────────────
+// ── HOURS SHOW MORE TOGGLE ────────────────────────────────────────────────────
+function toggleHoursExtra() {
+  const btn  = document.getElementById('hoursShowMore');
+  const body = document.getElementById('hoursExtra');
+  const open = body.classList.toggle('open');
+  btn.classList.toggle('open', open);
+  btn.querySelector('.show-more-arrow').textContent = open ? '▲' : '▼';
+  btn.childNodes[0].textContent = open
+    ? 'Fewer options '
+    : 'More options (bank holiday overtime, adjustments) ';
+}
+
 function toggleHppNote() {
   const btn  = document.getElementById('hppToggleBtn');
   const body = document.getElementById('hppNoteBody');
@@ -2413,6 +2541,9 @@ document.getElementById('bpBreakdownBtn').addEventListener('click', toggleBpBrea
 document.getElementById('backPayFrom').addEventListener('change', calcBackPay);
 document.getElementById('backPayPeriod').addEventListener('change', calcBackPay);
 document.getElementById('applyRateBtn').addEventListener('click', applyNewRate);
+
+// Hours card — show more toggle
+document.getElementById('hoursShowMore').addEventListener('click', toggleHoursExtra);
 
 // Tax year tabs
 document.getElementById('tyTab0').addEventListener('click', () => jumpToTaxYear(0));
