@@ -1342,7 +1342,7 @@
 //     and the TAX / NI / SL threshold values below.
 //     P48 anchor (13 Feb 2026) stays fixed as the offset reference point.
 const CONFIG = {
-  APP_VERSION:    '1.13',
+  APP_VERSION:    '1.14',
   // Period arithmetic
   ANCHOR_DATE:    new Date(2026, 1, 13), // P48 payday: 13 Feb 2026 (fixed reference)
   PERIOD_DAYS:    28,
@@ -1591,7 +1591,12 @@ function buildPeriodSelect() {
   const sel     = document.getElementById('periodSelect');
   const periods = getPeriods();
   const today   = new Date();
-  let   defPNum = periods[0].num;
+
+  // Default to the first period whose payday is still in the future — this is a pay predictor,
+  // so staff want to see what they're about to be paid, not what they already received.
+  // If all paydays have passed (end of supported range), fall back to the last period.
+  const upcoming = periods.find(p => p.payday > today);
+  const defPNum  = upcoming ? upcoming.num : periods[periods.length - 1].num;
 
   sel.innerHTML = '';
   let currentGroup    = null;
@@ -1614,7 +1619,6 @@ function buildPeriodSelect() {
       day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/London'
     });
     o.textContent = `Paid ${payStr}`;
-    if (p.payday <= today) defPNum = p.num;
     currentGroup.appendChild(o);
   });
 
