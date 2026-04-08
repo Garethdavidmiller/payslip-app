@@ -274,7 +274,16 @@
     }
     .sec-hd.first { padding-top: 4px; }
 
-    /* ── SHOW MORE / HOURS EXTRA ── */
+    /* ── SETTINGS NEW-YEAR NOTICE ── */
+  .settings-notice {
+    background: #fff8e1; border: 1.5px solid var(--accent-gold);
+    border-radius: var(--radius-sm); padding: 10px 12px;
+    font-size: var(--type-small); color: #5a4000;
+    margin-bottom: 12px; line-height: 1.5;
+  }
+  .settings-notice.hidden { display: none; }
+
+  /* ── SHOW MORE / HOURS EXTRA ── */
     .show-more-btn {
       display: flex; align-items: center; gap: 6px; justify-content: center;
       width: 100%; margin-top: 4px; padding: 10px 0;
@@ -819,10 +828,10 @@
 
   <main>
 
-  <!-- FIRST-RUN SETUP BANNER (hidden after first setup) -->
+  <!-- FIRST-RUN SETUP BANNER (hidden after first save) -->
   <div class="setup-banner" id="setupBanner">
-    <h2>👋 Welcome — two things to check first</h2>
-    <p>Enter your <strong>hourly rate</strong> and <strong>tax code</strong> in Your Settings below — saved automatically and only needed once.</p>
+    <h2>👋 Welcome — two things to set first</h2>
+    <p>Enter your <strong>hourly rate</strong> and <strong>tax code</strong> in Your Settings below, then tap <strong>Save settings</strong>.</p>
     <p class="privacy-note">🔒 Everything stays on your phone. Your pay data is never sent anywhere or seen by anyone.</p>
   </div>
 
@@ -831,11 +840,13 @@
     <div class="card-header card-header-toggle open" id="settingsToggle">
       <div>
         <h2>⚙️ Your Settings</h2>
-        <span class="hint">Hourly rate, tax code and pension — saved automatically</span>
+        <span class="hint" id="settingsHint">Check once per tax year — tap Save when done</span>
       </div>
       <span class="card-toggle-arrow">▼</span>
     </div>
     <div class="card-body collapsible-body open" id="settingsBody">
+
+      <div class="settings-notice hidden" id="settingsNewYearNotice"></div>
 
       <div class="field">
         <label>Your Hourly Rate <span class="note" id="rateYearLabel"></span></label>
@@ -884,6 +895,9 @@
         </select>
         <div class="field-hint">CEA is the only grade currently supported. CES and Dispatch will be added in a future update.</div>
       </div>
+
+      <button class="btn-primary" id="saveSettingsBtn" style="margin-top:8px">Save settings ✓</button>
+      <div id="settingsSaveFeedback" style="font-size:var(--type-small);color:var(--success-text);text-align:center;min-height:18px;margin-top:6px"></div>
 
     </div>
   </div>
@@ -1328,7 +1342,7 @@
 //     and the TAX / NI / SL threshold values below.
 //     P48 anchor (13 Feb 2026) stays fixed as the offset reference point.
 const CONFIG = {
-  APP_VERSION:    '1.12',
+  APP_VERSION:    '1.14',
   // Period arithmetic
   ANCHOR_DATE:    new Date(2026, 1, 13), // P48 payday: 13 Feb 2026 (fixed reference)
   PERIOD_DAYS:    28,
@@ -1427,6 +1441,10 @@ const GRADES = {
 const SK = { rate:'cea_rate', rates:'cea_rates', code:'cea_code', sl:'cea_sl', pension:'cea_pension', setup:'cea_setup_done', ytdPay:'cea_ytd_pay', ytdTax:'cea_ytd_tax', hppActual:'cea_hpp_actual', grade:'cea_grade' };
 // cea_rates is a JSON object: { '2025/26': 20.74, '2026/27': 21.50 }
 // Separate rate per tax year so updating for a pay award doesn't distort historical periods.
+
+// Session-level tracker — prevents Settings card from auto-opening more than once per tax year
+// per browser session. Cleared on page reload. Uses tax year label as the key.
+const _settingsPrompted = new Set();
 function periodKey(pNum) { return `cea_p${pNum}`; }
 
 // Period data schema — all fields that get saved per period
@@ -1573,7 +1591,12 @@ function buildPeriodSelect() {
   const sel     = document.getElementById('periodSelect');
   const periods = getPeriods();
   const today   = new Date();
-  let   defPNum = periods[0].num;
+
+  // Default to the first period whose payday is still in the future — this is a pay predictor,
+  // so staff want to see what they're about to be paid, not what they already received.
+  // If all paydays have passed (end of supported range), fall back to the last period.
+  const upcoming = periods.find(p => p.payday > today);
+  const defPNum  = upcoming ? upcoming.num : periods[periods.length - 1].num;
 
   sel.innerHTML = '';
   let currentGroup    = null;
@@ -1596,7 +1619,6 @@ function buildPeriodSelect() {
       day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/London'
     });
     o.textContent = `Paid ${payStr}`;
-    if (p.payday <= today) defPNum = p.num;
     currentGroup.appendChild(o);
   });
 
@@ -1740,6 +1762,21 @@ function onPeriodChange() {
   // Load the rate for this period's tax year into the Settings field
   updateRateForPeriod(ty);
 
+  // Settings confirmation check for this tax year.
+  // If confirmed: update the card header hint to show the saved values.
+  // If not confirmed and not yet prompted this session: open Settings and show the notice.
+  const tyConfirmed = localStorage.getItem(settingsKey(ty));
+  if (tyConfirmed) {
+    const rate = parseFloat(document.getElementById('hourlyRate').value || '20.74').toFixed(2);
+    const code = (document.getElementById('taxCode').value || '1257L').toUpperCase();
+    document.getElementById('settingsHint').textContent = `✓ ${ty.label} — £${rate}/hr · ${code}`;
+  } else if (!_settingsPrompted.has(ty.label)) {
+    _settingsPrompted.add(ty.label);
+    document.getElementById('settingsToggle').classList.add('open');
+    document.getElementById('settingsBody').classList.add('open');
+    document.getElementById('settingsNewYearNotice').classList.remove('hidden');
+  }
+
   // Show/hide bank holiday rows based on whether this period has any
   updateBhRows(p);
 
@@ -1882,16 +1919,20 @@ function clearPeriod() {
 }
 
 // ── SETTINGS SAVE / LOAD ──────────────────────────────────────────────────────
+// settingsKey: per-tax-year "confirmed" flag, separate from the raw saved values.
+function settingsKey(ty) { return `cea_setup_${ty.label.replace('/', '_')}`; }
+
+// saveSettings: persists all field values. Called on every input change (auto-save).
+// Does NOT set the confirmed flag or collapse the card — that's confirmSettings().
 function saveSettings() {
   const rateVal = document.getElementById('hourlyRate').value;
-  // Save rate per tax year — so a pay rise in 2026/27 doesn't change 2025/26 figures
   const pNum    = currentPeriodNum();
   const curP    = getPeriods().find(x => x.num === pNum);
   const curTy   = curP ? getTaxYearForOffset(curP.num - 48) : CONFIG.TAX_YEARS[0];
   const rates   = JSON.parse(localStorage.getItem(SK.rates) || '{}');
   rates[curTy.label] = parseFloat(rateVal) || 20.74;
   localStorage.setItem(SK.rates,     JSON.stringify(rates));
-  localStorage.setItem(SK.rate,      rateVal); // legacy fallback
+  localStorage.setItem(SK.rate,      rateVal);
   localStorage.setItem(SK.code,      document.getElementById('taxCode').value);
   localStorage.setItem(SK.sl,        document.getElementById('studentLoan').value);
   localStorage.setItem(SK.pension,   document.getElementById('pensionAmt').value);
@@ -1899,8 +1940,32 @@ function saveSettings() {
   localStorage.setItem(SK.ytdTax,    document.getElementById('ytdTax').value);
   localStorage.setItem(SK.hppActual, document.getElementById('hppActual').value);
   localStorage.setItem(SK.grade,     document.getElementById('gradeSelect').value);
-  localStorage.setItem(SK.setup,     '1');
+}
+
+// confirmSettings: called by the Save button. Saves, marks this tax year as confirmed,
+// updates the card header hint, collapses the card.
+function confirmSettings() {
+  saveSettings();
+  const pNum  = currentPeriodNum();
+  const curP  = getPeriods().find(x => x.num === pNum);
+  const curTy = curP ? getTaxYearForOffset(curP.num - 48) : CONFIG.TAX_YEARS[0];
+  localStorage.setItem(settingsKey(curTy), '1');
+  localStorage.setItem(SK.setup, '1');
   document.getElementById('setupBanner').classList.add('hidden');
+  document.getElementById('settingsNewYearNotice').classList.add('hidden');
+  // Update header hint to show confirmed summary
+  const rate = parseFloat(document.getElementById('hourlyRate').value).toFixed(2);
+  const code = (document.getElementById('taxCode').value || '1257L').toUpperCase();
+  document.getElementById('settingsHint').textContent =
+    `✓ ${curTy.label} — £${rate}/hr · ${code}`;
+  // Brief "saved" confirmation then collapse
+  const fb = document.getElementById('settingsSaveFeedback');
+  fb.textContent = '✓ Settings saved';
+  setTimeout(() => {
+    fb.textContent = '';
+    document.getElementById('settingsToggle').classList.remove('open');
+    document.getElementById('settingsBody').classList.remove('open');
+  }, 900);
   calculate();
 }
 
@@ -1933,6 +1998,14 @@ function loadSettings() {
   if (grade) document.getElementById('gradeSelect').value = grade;
   // On repeat visits: hide banner and collapse Settings
   if (done) {
+    // Migration for users who confirmed settings before per-tax-year tracking was added (v1.13).
+    // If the global SK.setup flag is set but no per-tax-year keys exist, mark all years confirmed
+    // now so they aren't asked to re-confirm on every period change.
+    CONFIG.TAX_YEARS.forEach(ty => {
+      if (!localStorage.getItem(settingsKey(ty))) {
+        localStorage.setItem(settingsKey(ty), '1');
+      }
+    });
     document.getElementById('setupBanner').classList.add('hidden');
     document.getElementById('settingsToggle').classList.remove('open');
     document.getElementById('settingsBody').classList.remove('open');
@@ -2541,6 +2614,7 @@ document.getElementById('bpBreakdownBtn').addEventListener('click', toggleBpBrea
 document.getElementById('backPayFrom').addEventListener('change', calcBackPay);
 document.getElementById('backPayPeriod').addEventListener('change', calcBackPay);
 document.getElementById('applyRateBtn').addEventListener('click', applyNewRate);
+document.getElementById('saveSettingsBtn').addEventListener('click', confirmSettings);
 
 // Hours card — show more toggle
 document.getElementById('hoursShowMore').addEventListener('click', toggleHoursExtra);
