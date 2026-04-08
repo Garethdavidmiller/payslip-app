@@ -385,8 +385,10 @@
     .h-info { flex: 1; min-width: 0; }
     .h-title {
       font-size: 14px; font-weight: 600; color: var(--text-dark);
-      display: flex; align-items: center; gap: 6px; flex-wrap: wrap; line-height: 1.3;
+      display: flex; align-items: center; gap: 6px; line-height: 1.3;
     }
+    /* Badge sits on its own line between the title and sub-description */
+    .h-info > .rate-badge { margin: 4px 0 3px; }
     .h-sub { font-size: var(--type-small); color: var(--text-light); margin-top: 3px; line-height: 1.45; }
 
     /* Rate badges — pill-shaped, colour-coded to match the roster's shift system */
@@ -1052,7 +1054,8 @@
       <!-- Saturday -->
       <div class="hours-row">
         <div class="h-info">
-          <div class="h-title">🗓️ Saturday Hours <span class="rate-badge badge-sat" id="badge-sat">1.25×  ·  £25.92/hr</span></div>
+          <div class="h-title">🗓️ Saturday Hours</div>
+          <span class="rate-badge badge-sat" id="badge-sat">1.25×  ·  £25.92/hr</span>
           <div class="h-sub">Saturdays in your contracted roster. Shows as <strong>Ord Basic Pay @1.25</strong> on your payslip.</div>
           <div class="val-warn" id="satWarn">⚠ Saturday hours cannot exceed 140</div>
         </div>
@@ -1074,7 +1077,8 @@
       <!-- Bank Holiday rows — both hidden when period has no bank holidays -->
       <div class="hours-row hidden" id="bhRow">
         <div class="h-info">
-          <div class="h-title">🏖️ Bank Holiday Hours <span class="rate-badge badge-bh" id="badge-bh">1.25×  ·  £25.93/hr</span></div>
+          <div class="h-title">🏖️ Bank Holiday Hours</div>
+          <span class="rate-badge badge-bh" id="badge-bh">1.25×  ·  £25.93/hr</span>
           <div class="h-sub">Rostered shifts that fall on a bank holiday (Easter, summer BH, etc.). Shows as "Bank Holiday Rostered 1.25" on your payslip.</div>
         </div>
         <div>
@@ -1095,7 +1099,8 @@
       <!-- Bank Holiday Overtime — also hidden when no bank holiday in period -->
       <div class="hours-row hidden" id="bhOtRow">
         <div class="h-info">
-          <div class="h-title">➕ Bank Holiday Overtime <span class="rate-badge badge-bh" id="badge-bhot">1.25×  ·  £25.93/hr</span></div>
+          <div class="h-title">➕ Bank Holiday Overtime</div>
+          <span class="rate-badge badge-bh" id="badge-bhot">1.25×  ·  £25.93/hr</span>
           <div class="h-sub">Worked a rest day that fell on a bank holiday — you weren't rostered, but came in. Shows as "Bank Holiday Overtime 1.25" on your payslip.</div>
         </div>
         <div>
@@ -1119,7 +1124,8 @@
       <!-- Overtime -->
       <div class="hours-row">
         <div class="h-info">
-          <div class="h-title">⏰ Overtime <span class="rate-badge badge-ot" id="badge-ot">1.25×  ·  £25.92/hr</span></div>
+          <div class="h-title">⏰ Overtime</div>
+          <span class="rate-badge badge-ot" id="badge-ot">1.25×  ·  £25.92/hr</span>
           <div class="h-sub" id="overtimeSub">Hours beyond your roster this period. Shows as "Overtime 1.25" on your payslip.</div>
         </div>
         <div>
@@ -1140,7 +1146,8 @@
       <!-- Rostered RDW -->
       <div class="hours-row">
         <div class="h-info">
-          <div class="h-title">💼 Rest Day Working <span class="rate-badge badge-rdw" id="badge-rdw">1.25×  ·  £25.92/hr</span></div>
+          <div class="h-title">💼 Rest Day Working</div>
+          <span class="rate-badge badge-rdw" id="badge-rdw">1.25×  ·  £25.92/hr</span>
           <div class="h-sub" id="rdwSub">Shifts worked on your normal rest day. Shows as "RDW 1.25" on your payslip.</div>
         </div>
         <div>
@@ -1161,7 +1168,8 @@
       <!-- Sunday RDW -->
       <div class="hours-row">
         <div class="h-info">
-          <div class="h-title">☀️ Sunday Working <span class="rate-badge badge-sun" id="badge-sun">1.5×  ·  £31.11/hr</span></div>
+          <div class="h-title">☀️ Sunday Working</div>
+          <span class="rate-badge badge-sun" id="badge-sun">1.5×  ·  £31.11/hr</span>
           <div class="h-sub" id="sundaySub">All Sunday hours are at 1.5×. Shows as "RDW Sun 1.5" on your payslip.</div>
         </div>
         <div>
@@ -1182,7 +1190,8 @@
       <!-- Boxing Day -->
       <div class="hours-row hidden" id="boxingRow">
         <div class="h-info">
-          <div class="h-title">🎁 Boxing Day Working <span class="rate-badge badge-box" id="badge-box">3×  ·  £62.22/hr</span></div>
+          <div class="h-title">🎁 Boxing Day Working</div>
+          <span class="rate-badge badge-box" id="badge-box">3×  ·  £62.22/hr</span>
           <div class="h-sub">26 December only — overrides all other rates. Shows as "Bank Holiday Overtime 3.0" on your payslip.</div>
         </div>
         <div>
@@ -1205,7 +1214,8 @@
 
       <div class="hours-row">
         <div class="h-info">
-          <div class="h-title">🎓 Training Days <span class="rate-badge badge-peer">+2 hrs pay</span></div>
+          <div class="h-title">🎓 Training Days</div>
+          <span class="rate-badge badge-peer">+2 hrs pay</span>
           <div class="h-sub">Each day adds 2 hours' pay at your base rate. Shows as extra basic pay on your payslip.</div>
         </div>
         <div class="stepper">
@@ -1470,7 +1480,7 @@
 //     and the TAX / NI / SL threshold values below.
 //     P48 anchor (13 Feb 2026) stays fixed as the offset reference point.
 const CONFIG = {
-  APP_VERSION:    '1.18',
+  APP_VERSION:    '1.19',
   // Period arithmetic
   ANCHOR_DATE:    new Date(2026, 1, 13), // P48 payday: 13 Feb 2026 (fixed reference)
   PERIOD_DAYS:    28,
