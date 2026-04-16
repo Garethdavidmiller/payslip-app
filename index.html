@@ -960,7 +960,7 @@
           <input type="number" id="pensionAmt" step="0.01" min="0" value="154.77" inputmode="decimal">
         </div>
         <div class="field-hint">Your pension deduction per period — shown as "Smart RPS CR Scheme" on your payslip. The amount varies slightly across the year — check each period's payslip and update this if needed.</div>
-        <div id="pensionWarn" class="val-warn" style="display:none">⚠ Pension exceeds gross pay — check the amount</div>
+        <div id="pensionWarn" class="val-warn">⚠ Pension exceeds gross pay — check the amount</div>
       </div>
 
       <div class="field">
@@ -1057,7 +1057,7 @@
           <div class="h-title">🗓️ Saturday Hours</div>
           <span class="rate-badge badge-sat" id="badge-sat">1.25×  ·  £25.92/hr</span>
           <div class="h-sub">Saturdays in your contracted roster. Shows as <strong>Ord Basic Pay @1.25</strong> on your payslip.</div>
-          <div class="val-warn" id="satWarn">⚠ Saturday hours cannot exceed 140</div>
+          <div class="val-warn" id="satWarn">⚠ Over 140 hours — capped at your contracted maximum</div>
         </div>
         <div>
           <div class="hhmm-wrap">
@@ -1241,8 +1241,8 @@
 
         <div class="hours-row">
           <div class="h-info">
-            <div class="h-title">± Other payroll adjustment</div>
-            <div class="h-sub">For absence offsets, corrections, or any "Other" line on your payslip. Use a negative number for a deduction (e.g. −£45.00), positive for an addition.</div>
+            <div class="h-title">Any other payslip adjustment</div>
+            <div class="h-sub">For absence deductions, corrections, or any extra line on your payslip. Use a negative number to reduce pay (e.g. −45.00 for an absence), positive to add to it.</div>
           </div>
           <div class="pfx" style="width:110px;flex-shrink:0">
             <span class="pfx-sym">£</span>
@@ -1260,7 +1260,7 @@
     <div class="card-header card-header-toggle" id="payslipCardToggle">
       <div>
         <h2>📊 Improve Accuracy <span style="font-size:12px;font-weight:400;color:var(--text-light)">(optional)</span></h2>
-        <span class="hint">YTD figures from your payslip + January HPP amount</span>
+        <span class="hint">Year to Date figures from your payslip + January HPP amount</span>
       </div>
       <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;padding-top:2px">
         <button class="help-btn" data-help="accuracy" aria-label="Help: Improve Accuracy">?</button>
@@ -1480,7 +1480,7 @@
 //     and the TAX / NI / SL threshold values below.
 //     P48 anchor (13 Feb 2026) stays fixed as the offset reference point.
 const CONFIG = {
-  APP_VERSION:    '1.19',
+  APP_VERSION:    '1.20',
   // Period arithmetic
   ANCHOR_DATE:    new Date(2026, 1, 13), // P48 payday: 13 Feb 2026 (fixed reference)
   PERIOD_DAYS:    28,
@@ -1585,6 +1585,10 @@ const SK = { rate:'cea_rate', rates:'cea_rates', code:'cea_code', sl:'cea_sl', p
 // cea_hpp_actual_2025_26 — confirmed amount from January payslip, written by user
 function hppEstKey(ty)    { return `cea_hpp_est_${ty.label.replace('/', '_')}`; }
 function hppActualKey(ty) { return `cea_hpp_actual_${ty.label.replace('/', '_')}`; }
+// YTD (Year to Date) figures are specific to each tax year — storing them per-year
+// prevents 2025/26 YTD values from corrupting the cumulative tax calculation in 2026/27.
+function ytdPayKey(ty)    { return `cea_ytd_pay_${ty.label.replace('/', '_')}`; }
+function ytdTaxKey(ty)    { return `cea_ytd_tax_${ty.label.replace('/', '_')}`; }
 
 // Session-level tracker — prevents Settings card from auto-opening more than once per tax year
 // per browser session. Cleared on page reload. Uses tax year label as the key.
@@ -1618,10 +1622,10 @@ const HELP_CONTENT = {
   accuracy: {
     title: 'Improve Accuracy — why it helps',
     tips: [
-      'By default, tax is estimated as 1/13 of your annual allowance each period. This is usually close but can drift if you had an unusual period earlier in the year.',
-      'Entering <strong>YTD figures</strong> switches to HMRC\'s cumulative method — the same one Chiltern use. This is significantly more accurate.',
-      'Find <strong>"Total taxable pay"</strong> and <strong>"Total tax deducted"</strong> in the Year to Date box on your payslip (usually bottom-right). Update them whenever you get a new payslip.',
-      '<strong>HPP actual:</strong> once your January payslip arrives with the confirmed Holiday Pay Premium amount, enter it here to replace the running estimate.',
+      'By default, the app estimates your tax each period as 1/13 of your annual allowance. This is usually close, but can drift if you had an unusual period earlier in the year.',
+      'Entering <strong>Year to Date figures</strong> switches to the same calculation method your employer uses — significantly more accurate.',
+      'Find <strong>"Total taxable pay"</strong> and <strong>"Total tax deducted"</strong> in the <strong>Year to Date</strong> box on your payslip (usually bottom-right). Update them each time you get a new payslip.',
+      'Once your January payslip arrives with the confirmed Holiday Pay Premium amount, enter it in the <strong>Holiday Pay Premium</strong> card below to replace the running estimate.',
     ],
   },
   hpp: {
@@ -1872,6 +1876,16 @@ function updateRateForPeriod(ty) {
   if (lbl) lbl.textContent = `for ${ty.label}`;
 }
 
+// Loads the stored Year to Date figures for this tax year into the Improve Accuracy fields.
+// Called from onPeriodChange() so values reset correctly when switching between tax years.
+function updateYtdForTaxYear(ty) {
+  const payEl = document.getElementById('ytdPay');
+  const taxEl = document.getElementById('ytdTax');
+  if (!payEl || !taxEl) return;
+  if (document.activeElement !== payEl) payEl.value = localStorage.getItem(ytdPayKey(ty)) || '';
+  if (document.activeElement !== taxEl) taxEl.value = localStorage.getItem(ytdTaxKey(ty)) || '';
+}
+
 // ── TAX YEAR TABS ─────────────────────────────────────────────────────────────
 function updateTyTabs() {
   const pNum = currentPeriodNum();
@@ -1943,7 +1957,7 @@ function onPeriodChange() {
   document.getElementById('rdwSub').textContent =
     `Shifts worked on your normal rest day (cut-off: ${cutStr}). Shows as "RDW 1.25" on your payslip.`;
   document.getElementById('sundaySub').textContent =
-    `All Sunday hours are at 1.5×. Shows as "RDW Sun 1.5" on your payslip.`;
+    `All Sunday hours are at 1.5× (cut-off: ${cutStr}). Shows as "RDW Sun 1.5" on your payslip.`;
 
   // Boxing Day
   const boxing = hasBoxingDay(p);
@@ -1957,8 +1971,9 @@ function onPeriodChange() {
   // Update tax year tab active state
   updateTyTabs();
 
-  // Load the rate for this period's tax year into the Settings field
+  // Load the rate and Year to Date figures for this period's tax year
   updateRateForPeriod(ty);
+  updateYtdForTaxYear(ty);
 
   // Settings confirmation check for this tax year.
   const tyConfirmed = localStorage.getItem(settingsKey(ty));
@@ -2147,9 +2162,9 @@ function saveSettings() {
   localStorage.setItem(SK.code,      document.getElementById('taxCode').value);
   localStorage.setItem(SK.sl,        document.getElementById('studentLoan').value);
   localStorage.setItem(SK.pension,   document.getElementById('pensionAmt').value);
-  localStorage.setItem(SK.ytdPay,    document.getElementById('ytdPay').value);
-  localStorage.setItem(SK.ytdTax,    document.getElementById('ytdTax').value);
-  localStorage.setItem(SK.grade,     document.getElementById('gradeSelect').value);
+  localStorage.setItem(ytdPayKey(curTy), document.getElementById('ytdPay').value);
+  localStorage.setItem(ytdTaxKey(curTy), document.getElementById('ytdTax').value);
+  localStorage.setItem(SK.grade,         document.getElementById('gradeSelect').value);
 }
 
 // confirmSettings: called by the Save button. Saves, marks this tax year as confirmed,
@@ -2194,16 +2209,23 @@ function loadSettings() {
   const code    = localStorage.getItem(SK.code);
   const sl      = localStorage.getItem(SK.sl);
   const pension = localStorage.getItem(SK.pension);
-  const ytdPay  = localStorage.getItem(SK.ytdPay);
-  const ytdTax  = localStorage.getItem(SK.ytdTax);
   const done    = localStorage.getItem(SK.setup);
   if (code)    document.getElementById('taxCode').value     = code.toUpperCase();
   if (sl)      document.getElementById('studentLoan').value = sl;
   if (pension) document.getElementById('pensionAmt').value  = pension;
-  if (ytdPay)  document.getElementById('ytdPay').value      = ytdPay;
-  if (ytdTax)  document.getElementById('ytdTax').value      = ytdTax;
+  // YTD values are loaded per-tax-year in updateYtdForTaxYear(), called from onPeriodChange().
   const grade = localStorage.getItem(SK.grade);
   if (grade) document.getElementById('gradeSelect').value = grade;
+  // Migrate legacy global YTD values (cea_ytd_pay / cea_ytd_tax) to per-year keys
+  const legacyYtdPay = localStorage.getItem(SK.ytdPay);
+  const legacyYtdTax = localStorage.getItem(SK.ytdTax);
+  if (legacyYtdPay || legacyYtdTax) {
+    const firstTy = CONFIG.TAX_YEARS[0];
+    if (!localStorage.getItem(ytdPayKey(firstTy))) localStorage.setItem(ytdPayKey(firstTy), legacyYtdPay || '');
+    if (!localStorage.getItem(ytdTaxKey(firstTy))) localStorage.setItem(ytdTaxKey(firstTy), legacyYtdTax || '');
+    localStorage.removeItem(SK.ytdPay);
+    localStorage.removeItem(SK.ytdTax);
+  }
   // On repeat visits: hide banner and collapse Settings
   if (done) {
     // Migration: mark all tax years confirmed if global setup flag already set (v1.13+)
@@ -2283,11 +2305,7 @@ function calculate() {
   // This reduces taxable pay and NI-able pay, saving the employee on both.
   const pension    = numVal('pensionAmt');
   const pensionWarn = document.getElementById('pensionWarn');
-  if (pension > gross && pension > 0) {
-    if (pensionWarn) pensionWarn.style.display = 'block';
-  } else {
-    if (pensionWarn) pensionWarn.style.display = 'none';
-  }
+  if (pensionWarn) pensionWarn.classList.toggle('show', pension > gross && pension > 0);
   const sacGross   = Math.max(0, gross - pension); // clamped — pension cannot exceed gross
 
   // Income Tax (on sacGross, not gross)
@@ -2435,9 +2453,9 @@ function calculate() {
   if (bhOtHrs > 0)
     bd += `<div class="bd-row"><span class="b-lbl">Bank Holiday Overtime (${fh(bhOtHrs)} × ${fmt(r125)})</span><span class="b-val">${fmt(gBhOt)}</span></div>`;
   if (oHrs > 0)
-    bd += `<div class="bd-row"><span class="b-lbl">Unrostered Overtime (${fh(oHrs)} × ${fmt(r125)})</span><span class="b-val">${fmt(gOvertime)}</span></div>`;
+    bd += `<div class="bd-row"><span class="b-lbl">Overtime (${fh(oHrs)} × ${fmt(r125)})</span><span class="b-val">${fmt(gOvertime)}</span></div>`;
   if (rHrs > 0)
-    bd += `<div class="bd-row"><span class="b-lbl">Rostered Rest Day Working (${fh(rHrs)} × ${fmt(r125)})</span><span class="b-val">${fmt(gRdw)}</span></div>`;
+    bd += `<div class="bd-row"><span class="b-lbl">Rest Day Working (${fh(rHrs)} × ${fmt(r125)})</span><span class="b-val">${fmt(gRdw)}</span></div>`;
   if (sHrs > 0)
     bd += `<div class="bd-row"><span class="b-lbl">Sunday Working (${fh(sHrs)} × ${fmt(r150)})</span><span class="b-val">${fmt(gSunday)}</span></div>`;
   if (bHrs > 0)
@@ -2450,7 +2468,7 @@ function calculate() {
   if (slSkip && plan !== 'none')
     bd += `<div class="bd-row"><span class="b-lbl" style="font-style:italic;color:var(--text-faint)">Student loan not deducted this period</span><span class="b-val"></span></div>`;
   if (usingCumulative)
-    bd += `<div class="bd-row"><span class="b-lbl" style="font-style:italic;color:var(--text-faint)">Tax estimated using HMRC's cumulative method — YTD figures from your last payslip</span><span class="b-val"></span></div>`;
+    bd += `<div class="bd-row"><span class="b-lbl" style="font-style:italic;color:var(--text-faint)">Tax adjusted using Year to Date figures from your last payslip</span><span class="b-val"></span></div>`;
   document.getElementById('bdBody').innerHTML = bd;
 
   calcHPP();
@@ -2584,11 +2602,11 @@ function updatePriorHpp(ty) {
 
   if (actual > 0) {
     amtLabel.innerHTML  = `${priorTy.label} HPP <span class="actual-badge">✓ Confirmed</span>`;
-    amtEl.textContent   = `£${actual.toFixed(2)}`;
+    amtEl.textContent   = fmt(actual);
     basisEl.textContent = `Confirmed from your January ${priorTy.hppPaidJan} payslip`;
   } else if (est > 0) {
     amtLabel.textContent = isJanPayday ? 'Expected on this payslip' : 'Estimated';
-    amtEl.textContent    = `£${est.toFixed(2)}`;
+    amtEl.textContent    = fmt(est);
     basisEl.textContent  = isJanPayday
       ? `Check your January ${priorTy.hppPaidJan} payslip and enter the confirmed amount below`
       : `Estimated from your ${priorTy.label} periods · due January ${priorTy.hppPaidJan}`;
