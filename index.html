@@ -601,7 +601,8 @@
     .bp-row .bp-lbl { color: var(--text-mid); }
     .bp-row .bp-val { font-weight: 700; color: var(--primary-blue); }
 
-    .hidden { display: none !important; }
+  /* ── CLEAR BUTTON confirming state ── */
+  .clear-btn.confirming { color: var(--error-red) !important; }
 
     /* ── SPLASH SCREEN ───────────────────────────────────────────────── */
     #splash {
@@ -707,8 +708,10 @@
     }
     #iconLightboxClose {
       position: absolute; top: 20px; right: 20px;
+      background: none; border: none; font-family: inherit;
       color: rgba(255,255,255,0.48); font-size: 26px;
       line-height: 1; cursor: pointer; padding: 8px;
+      touch-action: manipulation;
       transition: color 0.15s ease;
       -webkit-tap-highlight-color: transparent;
     }
@@ -1227,7 +1230,7 @@
 
       <!-- ── SHOW MORE TOGGLE ── -->
       <button class="show-more-btn" id="hoursShowMore">
-        More options (period adjustments) <span class="show-more-arrow">▼</span>
+        <span id="hoursShowMoreLabel">More options (period adjustments) </span><span class="show-more-arrow">▼</span>
       </button>
 
       <div class="hours-extra" id="hoursExtra">
@@ -1338,7 +1341,7 @@
         <div class="hpp-amount" id="hppAmount">£–</div>
         <div class="hpp-basis" id="hppBasis">Enter hours across your periods above to calculate</div>
       </div>
-      <button class="hpp-toggle-btn" id="hppToggleBtn">How is this calculated? <span class="hpp-toggle-arrow">▼</span></button>
+      <button class="hpp-toggle-btn" id="hppToggleBtn"><span id="hppToggleBtnLabel">How is this calculated? </span><span class="hpp-toggle-arrow">▼</span></button>
       <div class="hpp-note-body" id="hppNoteBody">
         <div class="card-note" id="hppNote"></div>
       </div>
@@ -1448,7 +1451,7 @@
 
 <!-- About lightbox: opened by tapping the header icon -->
 <div id="iconLightbox" role="dialog" aria-label="About Marylebone Pay Calculator" aria-modal="true">
-  <span id="iconLightboxClose" aria-label="Close">✕</span>
+  <button id="iconLightboxClose" aria-label="Close">✕</button>
   <div id="iconLightboxContent">
     <img src="icon-192.png" id="lightboxIcon" alt="App icon" style="width:96px;height:96px;border-radius:22px;object-fit:cover;box-shadow:0 0 0 3px rgba(255,255,255,0.18),0 12px 40px rgba(0,0,0,0.5);margin-bottom:8px;">
     <div class="lightbox-app-name">Marylebone Pay Calculator</div>
@@ -1480,7 +1483,7 @@
 //     and the TAX / NI / SL threshold values below.
 //     P48 anchor (13 Feb 2026) stays fixed as the offset reference point.
 const CONFIG = {
-  APP_VERSION:    '1.20',
+  APP_VERSION:    '1.21',
   // Period arithmetic
   ANCHOR_DATE:    new Date(2026, 1, 13), // P48 payday: 13 Feb 2026 (fixed reference)
   PERIOD_DAYS:    28,
@@ -2091,12 +2094,12 @@ function loadPeriodData(pNum) {
     extraBody.classList.add('open');
     extraBtn.classList.add('open');
     extraBtn.querySelector('.show-more-arrow').textContent = '▲';
-    extraBtn.childNodes[0].textContent = 'Fewer options ';
+    document.getElementById('hoursShowMoreLabel').textContent = 'Fewer options ';
   } else if (!hasExtras && extraBody.classList.contains('open')) {
     extraBody.classList.remove('open');
     extraBtn.classList.remove('open');
     extraBtn.querySelector('.show-more-arrow').textContent = '▼';
-    extraBtn.childNodes[0].textContent = 'More options (period adjustments)';
+    document.getElementById('hoursShowMoreLabel').textContent = 'More options (period adjustments) ';
   }
   updateSaveStatus(pNum);
   calculate();
@@ -2125,18 +2128,18 @@ function clearPeriod() {
   if (!_clearPending) {
     _clearPending = true;
     btn.textContent = 'Tap again to confirm';
-    btn.style.color = 'var(--error-red)';
+    btn.classList.add('confirming');
     _clearTimer = setTimeout(() => {
       _clearPending   = false;
       btn.textContent = 'Clear all entries';
-      btn.style.color = '';
+      btn.classList.remove('confirming');
     }, 3000);
     return;
   }
   clearTimeout(_clearTimer);
   _clearPending   = false;
   btn.textContent = 'Clear all entries';
-  btn.style.color = '';
+  btn.classList.remove('confirming');
   const pNum = currentPeriodNum();
   localStorage.removeItem(periodKey(pNum));
   writeFormData(emptyPeriodData());
@@ -2829,9 +2832,9 @@ function toggleHoursExtra() {
   const open = body.classList.toggle('open');
   btn.classList.toggle('open', open);
   btn.querySelector('.show-more-arrow').textContent = open ? '▲' : '▼';
-  btn.childNodes[0].textContent = open
+  document.getElementById('hoursShowMoreLabel').textContent = open
     ? 'Fewer options '
-    : 'More options (period adjustments)';
+    : 'More options (period adjustments) ';
 }
 
 function toggleHppNote() {
@@ -2840,7 +2843,7 @@ function toggleHppNote() {
   const open = body.classList.toggle('open');
   btn.classList.toggle('open', open);
   btn.querySelector('.hpp-toggle-arrow').textContent = open ? '▲' : '▼';
-  btn.childNodes[0].textContent = open ? 'Hide calculation details ' : 'How is this calculated? ';
+  document.getElementById('hppToggleBtnLabel').textContent = open ? 'Hide calculation details ' : 'How is this calculated? ';
 }
 
 // ── DISCLAIMER TOGGLE ─────────────────────────────────────────────────────────
