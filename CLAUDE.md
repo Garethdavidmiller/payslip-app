@@ -1,6 +1,6 @@
 # Claude Code Instructions — MYB Payday Calculator
 
-**Current version: v1.11**
+**Current version: v1.21**
 
 ---
 
@@ -25,38 +25,37 @@ estimated take-home pay. Standalone PWA with no link to the roster app or Firest
 **Current file structure:**
 ```
 payslip-app/
-├── index.html          ← the entire app (HTML + CSS + JS in one file for now)
+├── index.html            ← the entire app (HTML + CSS + JS in one file)
 ├── pay-service-worker.js ← PWA service worker
-└── CLAUDE.md           ← this file
+├── pay-manifest.json     ← PWA manifest
+├── CLAUDE.md             ← this file
+└── HANDOVER.md           ← Phase 2 integration guide (step-by-step)
 ```
 
 The single-file approach is intentional for Phase 1 — no build tools, no server. On merge
-(Phase 2), this splits into `paycalc.html` + `paycalc.js`.
+(Phase 2), this splits into `paycalc.html` + `paycalc.js`. See **HANDOVER.md** for the full
+step-by-step plan.
 
 ### Phase 2 — Merge into the roster app (planned)
 
 The calculator moves into the main roster app repo alongside `index.html`, `admin.html`, etc.
-At that point:
-- `index.html` (this file) splits into `paycalc.html` (HTML + CSS only) + `paycalc.js` (all JS)
-- Inline CSS is replaced by `<link rel="stylesheet" href="./shared.css?v=...">` 
-- `roster-data.js` and `firebase-client.js` are imported rather than copied
-- The grade selector gets wired to real contractual data for CES and Dispatch
+See **HANDOVER.md** for the complete integration checklist.
 
 **Target file structure after merge:**
 ```
 roster-app/
-├── index.html          ← main calendar view (unchanged)
-├── admin.html          ← staff self-service + admin portal (unchanged)
-├── app.js              ← JS for index.html
-├── admin-app.js        ← JS for admin.html
-├── roster-data.js      ← shared data + utility functions
-├── firebase-client.js  ← Firebase init + Firestore helpers
-├── shared.css          ← shared CSS variables + base styles
-├── service-worker.js   ← main roster service worker (add paycalc files here)
+├── index.html            ← main calendar view (unchanged)
+├── admin.html            ← staff self-service + admin portal (unchanged)
+├── app.js                ← JS for index.html
+├── admin-app.js          ← JS for admin.html
+├── roster-data.js        ← shared data + utility functions
+├── firebase-client.js    ← Firebase init + Firestore helpers
+├── shared.css            ← shared CSS variables + base styles
+├── service-worker.js     ← main roster service worker (add paycalc files here)
 ├── pay-service-worker.js ← paycalc-specific service worker
-├── manifest.json
-├── paycalc.html        ← HTML shell + CSS link only (split from current index.html)
-└── paycalc.js          ← all JS for paycalc (split from current index.html)
+├── manifest.json         ← main manifest (add paycalc shortcut here)
+├── paycalc.html          ← HTML shell + paycalc-specific CSS (split from index.html)
+└── paycalc.js            ← all JS for paycalc (split from index.html)
 ```
 
 ### Phase 3 — Auto-read shifts from Firestore (aspirational, do not build now)
@@ -144,6 +143,19 @@ Never write a hex value directly in a CSS rule. Use these variables only.
 --type-medium: 16px
 --type-large:  18px
 --type-xl:     24px
+
+/* Status / system */
+--status-ok:         #4caf50
+--status-ok-bg:      rgba(76,175,80,0.15)
+--status-update:     #64b5f6
+--status-update-bg:  rgba(100,181,246,0.15)
+--update-btn:        #1976d2
+--update-btn-active: #1565c0
+
+/* Component-specific */
+--boxing-day-bg:     #fff8e1
+--boxing-day-text:   #bf6000
+--notice-text:       #5a4000   /* Gold notice panels */
 ```
 
 Font stack: `-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif`
@@ -162,13 +174,13 @@ Font stack: `-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubun
 
 ```javascript
 const CONFIG = {
-  APP_VERSION:    '1.11',       // bump by 0.01 on every behaviour-changing commit
-  ANCHOR_DATE:    new Date(2026, 1, 13),  // P48 payday (fixed reference point)
+  APP_VERSION:    '1.21',       // bump by 0.01 on every behaviour-changing commit
+  ANCHOR_DATE:    new Date(2026, 1, 13),  // P48 payday (fixed reference point — never changes)
   PERIOD_DAYS:    28,
   PERIODS_PER_YR: 13,
-  GRADE:          'CEA',        // static for now; grade selector scaffold in place
+  GRADE:          'CEA',        // legacy constant — not used in logic; grade selector reads SK.grade
   CONTRACTED_HRS: 140,          // hours per 28-day period (CEA)
-  LONDON_ALLOW:   276.16,       // London Allowance per period (legacy constant — use TAX_YEARS entry)
+  LONDON_ALLOW:   276.16,       // legacy constant — not used in logic; use TAX_YEARS[n].londonAllow
   FIRST_OFFSET:   -11,          // P37 — first period of 2025/26 (≈11 Apr 2025)
   LAST_OFFSET:     14,          // P62 — last period of 2026/27 (≈11 Mar 2027)
   TAX_YEARS: [
@@ -191,41 +203,51 @@ const GRADES = {
 };
 ```
 
-The grade selector in Settings already exists in the UI (CEA active; CES and Dispatch disabled with
-"coming soon"). When CES/Dispatch rates are confirmed, add their entries here and enable the options.
+The grade selector UI is in place (CEA active; CES and Dispatch disabled with "coming soon").
+When CES/Dispatch rates are confirmed, add their entries here and enable the `<option>` elements.
 
-### Storage keys (SK)
+### Storage keys (SK) — current as of v1.21
 
 ```javascript
 const SK = {
-  rate:     'cea_rate',
-  code:     'cea_code',
-  sl:       'cea_sl',
-  pension:  'cea_pension',
-  setup:    'cea_setup_done',
-  ytdPay:   'cea_ytd_pay',
-  ytdTax:   'cea_ytd_tax',
-  hppActual:'cea_hpp_actual',
-  grade:    'cea_grade',
+  rate:    'cea_rate',      // legacy single rate — still written for backwards compat
+  rates:   'cea_rates',     // JSON object: { '2025/26': 20.74, '2026/27': 21.50 }
+  code:    'cea_code',      // tax code string, e.g. "1257L"
+  sl:      'cea_sl',        // student loan plan: "none"|"plan1"|"plan2"|"plan4"|"plan5"|"postgrad"
+  pension: 'cea_pension',   // pension deduction per period (£)
+  setup:   'cea_setup_done',// "1" once user has saved settings at least once
+  ytdPay:  'cea_ytd_pay',   // MIGRATION ONLY — no longer written; migrated to per-year key on load
+  ytdTax:  'cea_ytd_tax',   // MIGRATION ONLY — no longer written; migrated to per-year key on load
+  grade:   'cea_grade',     // grade value: "cea"
 };
 ```
 
-Per-period data uses `cea_p{periodNum}` as the key (e.g. `cea_p50`).
+**Per-tax-year keys** (generated by helper functions, not in SK):
+
+| Helper | Key pattern | Example | Purpose |
+|--------|-------------|---------|---------|
+| `settingsKey(ty)` | `cea_setup_{ty}` | `cea_setup_2025_26` | "1" when settings confirmed for that TY |
+| `hppEstKey(ty)` | `cea_hpp_est_{ty}` | `cea_hpp_est_2025_26` | Running HPP estimate (£, string) |
+| `hppActualKey(ty)` | `cea_hpp_actual_{ty}` | `cea_hpp_actual_2025_26` | Confirmed January payslip HPP (£, string) |
+| `ytdPayKey(ty)` | `cea_ytd_pay_{ty}` | `cea_ytd_pay_2025_26` | Year to Date taxable pay (£, string) |
+| `ytdTaxKey(ty)` | `cea_ytd_tax_{ty}` | `cea_ytd_tax_2025_26` | Year to Date tax deducted (£, string) |
+
+**Per-period data** uses `cea_p{periodNum}` — e.g. `cea_p50`.
 
 ### Per-period data schema
 
 ```javascript
 {
-  satH, satM,       // Saturday contracted hours + minutes
-  bhH, bhM,         // Bank Holiday Rostered hours + minutes (1.25×)
-  bhOtH, bhOtM,     // Bank Holiday Overtime hours + minutes (1.25×)
-  otH, otM,         // Unrostered Overtime hours + minutes (1.25×)
-  rdwH, rdwM,       // Rest Day Worked hours + minutes (1.25×)
-  sunH, sunM,       // Sunday Working hours + minutes (1.5×)
-  boxH, boxM,       // Boxing Day Working hours + minutes (3×)
-  peer,             // Peer Training days (each adds 2hrs at base rate)
-  slSkip,           // boolean — true if student loan was NOT deducted this period
-  otherAdj,         // signed £ amount — for absence offsets, corrections, "Other" payslip lines
+  satH, satM,     // Saturday contracted hours + minutes (1.25×)
+  bhH, bhM,       // Bank Holiday Rostered hours + minutes (1.25×)
+  bhOtH, bhOtM,   // Bank Holiday Overtime hours + minutes — RDW on a BH (1.25×)
+  otH, otM,       // Overtime hours + minutes (1.25×)
+  rdwH, rdwM,     // Rest Day Working hours + minutes (1.25×)
+  sunH, sunM,     // Sunday Working hours + minutes (1.5×)
+  boxH, boxM,     // Boxing Day Working hours + minutes (3×, 26 Dec only)
+  peer,           // Peer Training days (each adds 2hrs at base rate)
+  slSkip,         // boolean — true if student loan was NOT deducted this period
+  otherAdj,       // signed £ amount — for absence deductions, corrections, etc.
 }
 ```
 
@@ -241,14 +263,14 @@ Review after each Autumn Budget and Spring Statement.
 
 ## Pay calculation rules (CEA — Marylebone)
 
-Confirmed against real Chiltern payslips (12 periods reviewed, May 2025–Mar 2026).
+Confirmed against real Chiltern payslips (12+ periods reviewed, May 2025 onwards).
 
 | Payslip line | Multiplier | App input |
 |---|---|---|
 | Ord Basic Pay @1.0 | 1.0× | Derived: `CONTRACTED_HRS − satCapped − bhCapped` |
 | Ord Basic Pay @1.25 | 1.25× | Saturday Hours input |
 | Bank Holiday Rostered 1.25 | 1.25× | Bank Holiday Hours input |
-| Bank Holiday Overtime 1.25 | 1.25× | Bank Holiday Overtime input |
+| Bank Holiday Overtime 1.25 | 1.25× | Bank Holiday Overtime input (RDW on a BH) |
 | Overtime 1.25 | 1.25× | Overtime input |
 | RDW 1.25 | 1.25× | Rest Day Working input |
 | RDW Sun 1.5 | 1.5× | Sunday Working input |
@@ -264,7 +286,8 @@ Confirmed against real Chiltern payslips (12 periods reviewed, May 2025–Mar 20
 ### Gross pay formula
 
 ```
-gross = gBasicNorm + gBasicSat + gBankHol + gBhOt + gOvertime + gRdw + gSunday + gBoxing + gPeer + LONDON + otherAdj
+gross    = gBasicNorm + gBasicSat + gBankHol + gBhOt + gOvertime + gRdw
+           + gSunday + gBoxing + gPeer + LONDON + otherAdj
 sacGross = max(0, gross − pension)   // salary sacrifice reduces taxable and NI-able pay
 ```
 
@@ -273,7 +296,7 @@ sacGross = max(0, gross − pension)   // salary sacrifice reduces taxable and N
 - Standard codes (`nL`, `KnL`, `0T`, `NT`, `BR`, `D0`, `D1`): England/Wales bands
 - `W1`/`M1`/`X` suffix: non-cumulative (per-period only)
 - `S` prefix: Scottish Holyrood bands (full 6-band calculation)
-- Cumulative PAYE: when YTD Taxable Pay + YTD Tax Paid are provided, uses HMRC's cumulative method
+- Cumulative PAYE: when Year to Date pay + tax are provided, uses HMRC's cumulative method
 
 ### Holiday Pay Premium (HPP)
 
@@ -285,13 +308,15 @@ Variable pay includes: OT, RDW, Sunday, Boxing Day, Saturday uplift, London Allo
 Excludes: basic pay, peer training, expenses, bonuses.
 
 HPP accumulates across the tax year. Chiltern pay it as a lump sum every January.
+The prior year's estimate is carried forward into the HPP card when the user moves to a new tax year.
+The user can then enter the confirmed January payslip figure to replace the estimate.
 
 ### Back-pay calculator
 
-- "Back pay from" always pre-set to the April period (pay anniversary is 1 April)
-- Calculation runs from "back pay from" period up to and including "paid in" period
+- "Back pay from" pre-sets to the April period (Chiltern's pay anniversary is 1 April)
+- Runs from "back pay from" period up to and including "paid in" period
 - Covers rate difference on all hour types + London Allowance difference
-- "Apply new rate" button pushes new rate into Settings and marks itself as applied
+- "Apply new rate" button pushes the new rate into Settings so future periods calculate correctly
 
 ---
 
@@ -304,8 +329,8 @@ HPP accumulates across the tax year. Chiltern pay it as a lump sum every January
 - A PostToolUse hook auto-increments and reminds you if you forget
 - The hook also syncs `pay-service-worker.js` — the browser detects a new SW only when that file changes byte-for-byte
 
-**After merge** the parent repo requires 13 version string updates per commit. `paycalc.html` and
-`paycalc.js` will add two new rows to that table.
+**After merge** the parent repo requires version string updates per commit. `paycalc.html` and
+`paycalc.js` will each need their own version rows in that table.
 
 ---
 
@@ -318,39 +343,22 @@ ready. Never auto-reload silently — staff may be mid-entry.
 
 **After merge, add to `firebase.json`:**
 ```json
-"headers": [
-  {
-    "source": "/pay-service-worker.js",
-    "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
-  }
-]
+{
+  "source": "/pay-service-worker.js",
+  "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
+}
 ```
 
-**After merge, add to `service-worker.js`:**
+**After merge, add to `service-worker.js` (main roster SW):**
 ```javascript
-// Network-first list:
+// In the network-first URLs list:
 './paycalc.html',
 './paycalc.js',
 
-// ASSETS_TO_CACHE:
+// In ASSETS_TO_CACHE:
 './paycalc.html',
 './paycalc.js',
 ```
-
----
-
-## Grade selector — handover notes for Phase 2
-
-The grade selector UI is in place in the Settings card. CEA is the only active option.
-CES and Dispatch are shown disabled with "coming soon".
-
-**To activate a new grade:**
-1. Add its entry to the `GRADES` constant (rate, contr, pension)
-2. Enable the `<option>` in the `gradeSelect` HTML (remove `disabled`)
-3. Wire the grade change handler to update default rate/contracted hours from `GRADES[grade]`
-4. Add grade-specific `londonAllow` to `CONFIG.TAX_YEARS` entries if different from CEA
-
-The grade value is stored in `localStorage` under `SK.grade` (`cea_grade`).
 
 ---
 
@@ -363,13 +371,29 @@ CONFIG.TAX_YEARS = [
 ];
 ```
 
-`first` and `last` are offsets from P48 (13 Feb 2026 payday — the fixed anchor).
+`first` and `last` are offsets from P48 (13 Feb 2026 payday — the fixed anchor — never changes).
 
 **Each April, add:**
-- New entry in `CONFIG.TAX_YEARS` with confirmed `londonAllow`
-- Update `londonAllowPre` to last year's `londonAllow` (for back-pay calculator pre-fill)
-- New entries in `TAX_BY_YEAR`, `NI_BY_YEAR`, `SL_BY_YEAR`, `SCOTTISH_TAX_BY_YEAR`
-- Extend `LAST_OFFSET` by 13
+1. New entry in `CONFIG.TAX_YEARS` with confirmed `londonAllow`
+2. Copy current year's `londonAllow` into next year's `londonAllowPre` (used by back-pay pre-fill)
+3. New entries in `TAX_BY_YEAR`, `NI_BY_YEAR`, `SL_BY_YEAR`, `SCOTTISH_TAX_BY_YEAR`
+4. Extend `LAST_OFFSET` by 13
+5. Add new bank holiday dates to `BANK_HOLIDAYS_EW` (from gov.uk/bank-holidays)
+
+---
+
+## Grade selector — activation notes
+
+The grade selector UI is in place. CEA is the only active option.
+CES and Dispatch are shown disabled with "coming soon".
+
+**To activate a new grade:**
+1. Add its entry to `GRADES` (rate, contr, pension)
+2. Enable the `<option>` in the `gradeSelect` HTML (remove `disabled`)
+3. Wire the grade change handler to update default rate/contracted hours from `GRADES[grade]`
+4. Add grade-specific `londonAllow` to `CONFIG.TAX_YEARS` entries if different from CEA
+
+The grade value is stored in `localStorage` under `SK.grade` (`cea_grade`).
 
 ---
 
@@ -414,14 +438,6 @@ note        string (always present; "" if none)
 createdAt   Firestore server timestamp
 ```
 
-Shift value meanings:
-- `"RD"` / `"OFF"` — rest day, not worked
-- `"SPARE"` — standby, not yet assigned
-- `"RDW"` — rest day worked (overtime)
-- `"AL"` — annual leave
-- `"SICK"` — absence (covers sickness, family emergency, any personal reason; display as "Absence", never "Sick")
-- `"HH:MM-HH:MM"` — worked shift
-
 ---
 
 ## Authentication — Phase 2 onwards
@@ -431,16 +447,7 @@ Phase 1 has no login. Phase 2 uses the roster app's existing localStorage sessio
 const currentUser = localStorage.getItem('rosterUser'); // "G. Miller"
 ```
 
-Do not duplicate the login function from `admin-app.js`. If needed, redirect to `admin.html`.
-
----
-
-## Open questions for Phase 2
-
-- Which file owns period selector logic after merge — `paycalc.js` calling `getPaydaysAndCutoffs()`, or a shared utility?
-- Should the calculator share the roster app's existing `localStorage` namespace, or keep its own `cea_p*` keys?
-- Grade-specific `londonAllow`: should it be a field on `GRADES[grade]` per tax year, or stay on `CONFIG.TAX_YEARS`?
-- After grade selector is activated for CES/Dispatch: should the grade drive the default hourly rate automatically, or let staff override it?
+Do not duplicate the login function from `admin-app.js`. If `currentUser` is null, redirect to `admin.html`.
 
 ---
 
